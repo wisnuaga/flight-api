@@ -1,11 +1,17 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+
+	"flight-api/internal/config"
 )
 
 func main() {
+	// Load Configurations
+	cfg := config.LoadConfig()
+
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -19,7 +25,7 @@ func main() {
 		w.Write([]byte("OK"))
 	})
 
-	port := ":8080"
+	port := fmt.Sprintf(":%s", cfg.Service.Port)
 	log.Printf("Server is starting and listening on port %s...\n", port)
 
 	if err := http.ListenAndServe(port, mux); err != nil {
