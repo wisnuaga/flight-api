@@ -1,4 +1,4 @@
-module flight-api
+module github.com/wisnuaga/flight-api
 
 go 1.24.11
 

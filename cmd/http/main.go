@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	"flight-api/internal/config"
+	"github.com/wisnuaga/flight-api/internal/config"
 )
 
 func main() {
