@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/wisnuaga/flight-api/internal/config"
+	"github.com/wisnuaga/flight-api/internal/router"
 )
 
 func main() {
@@ -14,16 +15,7 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
+	router.Setup(mux)
 
 	port := fmt.Sprintf(":%s", cfg.Service.Port)
 	log.Printf("Server is starting and listening on port %s...\n", port)
