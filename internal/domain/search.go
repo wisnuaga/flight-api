@@ -11,7 +11,7 @@ type SearchRequest struct {
 }
 
 type SearchResult struct {
-	Flights []Flight
+	Flights []*Flight
 	Meta    *SearchMeta
 }
 
