@@ -17,13 +17,19 @@ func TestClient_Name(t *testing.T) {
 	}
 }
 
+func ptrString(s string) *string {
+	return &s
+}
+
 func TestClient_Search(t *testing.T) {
 	baseReq := &domain.SearchRequest{
 		Origin:        "CGK",
 		Destination:   "DPS",
 		DepartureDate: time.Date(2025, 12, 15, 0, 0, 0, 0, time.UTC),
 		Passengers:    1,
-		CabinClass:    "economy",
+		Filter: domain.SearchFilter{
+			CabinClass: ptrString("economy"),
+		},
 	}
 
 	testCases := []struct {
