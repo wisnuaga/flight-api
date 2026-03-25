@@ -33,9 +33,11 @@ func ptr[T any](v T) *T {
 func TestFlightUsecase_Search(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC)
 	mockFlights := []*domain.Flight{
-		{ID: "F1", Provider: "Alpha", Price: 1500, Duration: 120 * time.Minute, Stops: 1, DepartureTime: baseTime, ArrivalTime: baseTime.Add(2 * time.Hour)},
-		{ID: "F2", Provider: "Beta", Price: 1000, Duration: 150 * time.Minute, Stops: 0, DepartureTime: baseTime.Add(1 * time.Hour), ArrivalTime: baseTime.Add(3*time.Hour + 30*time.Minute)},
-		{ID: "F3", Provider: "Alpha", Price: 2000, Duration: 90 * time.Minute, Stops: 0, DepartureTime: baseTime.Add(2 * time.Hour), ArrivalTime: baseTime.Add(3*time.Hour + 30*time.Minute)},
+		{ID: "F1", Provider: "Alpha", FlightNumber: "AL1", Price: 1500, Duration: 120 * time.Minute, Stops: 1, DepartureTime: baseTime, ArrivalTime: baseTime.Add(2 * time.Hour)},
+		{ID: "F2", Provider: "Beta", FlightNumber: "BE2", Price: 1000, Duration: 150 * time.Minute, Stops: 0, DepartureTime: baseTime.Add(1 * time.Hour), ArrivalTime: baseTime.Add(3*time.Hour + 30*time.Minute)},
+		{ID: "F3", Provider: "Alpha", FlightNumber: "AL3", Price: 2000, Duration: 90 * time.Minute, Stops: 0, DepartureTime: baseTime.Add(2 * time.Hour), ArrivalTime: baseTime.Add(3*time.Hour + 30*time.Minute)},
+		// Duplicate of F1 but cheaper
+		{ID: "F4", Provider: "Gamma", FlightNumber: "AL1", Price: 1200, Duration: 120 * time.Minute, Stops: 1, DepartureTime: baseTime, ArrivalTime: baseTime.Add(2 * time.Hour)},
 	}
 
 	testCases := []struct {
@@ -107,6 +109,37 @@ func TestFlightUsecase_Search(t *testing.T) {
 			},
 			expectedLen:   2,
 			expectedFirst: "F2", // Filtered out F1 which has 1 stop
+		},
+		{
+			name: "success - deduplication keeps cheaper flight",
+			providers: []provider.FlightProvider{
+				&mockProvider{name: "Alpha", flights: []*domain.Flight{mockFlights[0]}, err: nil}, // F1 (1500)
+				&mockProvider{name: "Gamma", flights: []*domain.Flight{mockFlights[3]}, err: nil}, // F4 (1200) - same route/time
+			},
+			input:         &domain.SearchRequest{},
+			expectedLen:   1,    // Should deduplicate F1 and F4 into 1
+			expectedFirst: "F4", // Should keep the cheaper one
+		},
+		{
+			name: "success - best value ranking",
+			providers: []provider.FlightProvider{
+				// We drop F1 since F4 deduplicates it to make it clean
+				&mockProvider{name: "Alpha", flights: []*domain.Flight{mockFlights[2]}, err: nil}, // F3 (price 2000, dur 90)
+				&mockProvider{name: "Beta", flights: []*domain.Flight{mockFlights[1]}, err: nil},  // F2 (price 1000, dur 150)
+				&mockProvider{name: "Gamma", flights: []*domain.Flight{mockFlights[3]}, err: nil}, // F4 (price 1200, dur 120)
+			},
+			input: &domain.SearchRequest{
+				Sort: domain.SearchSort{
+					Field:          domain.SortByBestValue,
+					Order:          domain.SortAsc,
+					PriceWeight:    1.0,
+					DurationWeight: 1.0,
+				},
+			},
+			expectedLen: 3,
+			// F4 has balanced score (0.2 price, 0.5 dur -> 0.7 score).
+			// F2 has score 1.0 (dur=max). F3 has score 1.0 (price=max)
+			expectedFirst: "F4",
 		},
 	}
 
