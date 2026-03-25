@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 
@@ -66,6 +67,10 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *domain.SearchReques
 		success++
 		allFlights = append(allFlights, res.flights...)
 	}
+
+	sort.Slice(allFlights, func(i, j int) bool {
+		return allFlights[i].Price < allFlights[j].Price
+	})
 
 	return u.buildSearchResult(allFlights, req), nil
 }
