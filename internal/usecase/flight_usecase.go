@@ -15,10 +15,6 @@ type searchResult struct {
 	err     error
 }
 
-type FlightUsecase interface {
-	Search(ctx context.Context, req *domain.SearchRequest) (*domain.SearchResult, error)
-}
-
 type FlightUsecaseImpl struct {
 	providers []provider.FlightProvider
 }
