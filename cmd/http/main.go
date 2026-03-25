@@ -13,7 +13,7 @@ func main() {
 	cfg := config.LoadConfig()
 
 	// Setup router (Gin)
-	r := router.Setup()
+	r := router.Setup(cfg)
 
 	port := fmt.Sprintf(":%s", cfg.Service.Port)
 	log.Printf("Server is starting and listening on port %s...\n", port)
