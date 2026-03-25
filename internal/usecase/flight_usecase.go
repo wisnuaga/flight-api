@@ -63,10 +63,10 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *domain.SearchReques
 		allFlights = append(allFlights, res.flights...)
 	}
 
-	return u.buildSearchResult(allFlights, req), nil
+	return u.buildSearchResult(allFlights, req, success, failed), nil
 }
 
-func (u *FlightUsecaseImpl) buildSearchResult(flights []*domain.Flight, req *domain.SearchRequest) *domain.SearchResult {
+func (u *FlightUsecaseImpl) buildSearchResult(flights []*domain.Flight, req *domain.SearchRequest, success, failed int) *domain.SearchResult {
 	flights = u.deduplicateFlights(flights)
 
 	predicates := BuildFilterPredicates(&req.Filter)
@@ -79,8 +79,8 @@ func (u *FlightUsecaseImpl) buildSearchResult(flights []*domain.Flight, req *dom
 		Meta: &domain.SearchMeta{
 			TotalFlights: len(flights),
 			Providers:    len(u.providers),
-			SuccessCount: len(flights),
-			FailedCount:  len(u.providers) - len(flights),
+			SuccessCount: success,
+			FailedCount:  failed,
 		},
 	}
 }
