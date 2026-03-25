@@ -67,7 +67,6 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *domain.SearchReques
 }
 
 func (u *FlightUsecaseImpl) buildSearchResult(flights []*domain.Flight, req *domain.SearchRequest, success, failed int) *domain.SearchResult {
-	u.calculateDurations(flights)
 	flights = u.deduplicateFlights(flights)
 
 	predicates := BuildFilterPredicates(&req.Filter)
@@ -83,14 +82,6 @@ func (u *FlightUsecaseImpl) buildSearchResult(flights []*domain.Flight, req *dom
 			SuccessCount: success,
 			FailedCount:  failed,
 		},
-	}
-}
-
-func (u *FlightUsecaseImpl) calculateDurations(flights []*domain.Flight) {
-	for _, f := range flights {
-		if f.Duration == 0 && !f.ArrivalTime.IsZero() && !f.DepartureTime.IsZero() {
-			f.Duration = f.ArrivalTime.Sub(f.DepartureTime)
-		}
 	}
 }
 

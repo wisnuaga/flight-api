@@ -1,17 +1,23 @@
 package garuda
 
 import (
-	"time"
-
 	"github.com/wisnuaga/flight-api/internal/domain"
+	"github.com/wisnuaga/flight-api/internal/util"
 )
 
 func mapToDomain(resp GarudaSearchResponse) []*domain.Flight {
-	flights := make([]*domain.Flight, 0, len(resp.Flights))
+	var flights []*domain.Flight
 
 	for _, f := range resp.Flights {
-		dep, _ := time.Parse(time.RFC3339, f.Departure.Time)
-		arr, _ := time.Parse(time.RFC3339, f.Arrival.Time)
+		dep, err := util.ParseTime(f.Departure.Time)
+		if err != nil {
+			continue
+		}
+
+		arr, err := util.ParseTime(f.Arrival.Time)
+		if err != nil {
+			continue
+		}
 
 		var price float64
 		var currency string
@@ -20,7 +26,8 @@ func mapToDomain(resp GarudaSearchResponse) []*domain.Flight {
 			currency = f.Price.Currency
 		}
 
-		flight := &domain.Flight{
+		// Initial Raw Flight Mapping
+		flight := domain.Flight{
 			ID:             f.FlightID,
 			Provider:       "Garuda",
 			FlightNumber:   f.AirlineCode + f.FlightID[len(f.AirlineCode):],
@@ -28,14 +35,21 @@ func mapToDomain(resp GarudaSearchResponse) []*domain.Flight {
 			Destination:    f.Arrival.Airport,
 			DepartureTime:  dep,
 			ArrivalTime:    arr,
-			Duration:       time.Duration(f.DurationMinutes) * time.Minute,
 			Price:          price,
 			Currency:       currency,
 			CabinClass:     f.FareClass,
 			AvailableSeats: f.AvailableSeats,
 		}
-		flight.Normalize()
-		flights = append(flights, flight)
+
+		// Let domain rules normalize basic values and enforce duration calculation
+		flight = domain.NormalizeFlight(flight)
+
+		// Hard drop invalid/malformed response payload flight items
+		if !domain.IsValidFlight(flight) {
+			continue
+		}
+
+		flights = append(flights, &flight)
 	}
 
 	return flights
