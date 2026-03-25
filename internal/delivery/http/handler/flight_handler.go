@@ -39,7 +39,7 @@ func (h *FlightHandler) Search(c *gin.Context) {
 		return
 	}
 
-	flights, err := h.Usecases.FlightUsecase.Search(c, &domainReq)
+	result, err := h.Usecases.FlightUsecase.Search(c, &domainReq)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err.Error(),
@@ -47,5 +47,5 @@ func (h *FlightHandler) Search(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, flights)
+	c.JSON(http.StatusOK, dto.ToSearchResponse(&req, result))
 }
