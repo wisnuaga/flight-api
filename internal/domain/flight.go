@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type Flight struct {
 	// Basic info
@@ -24,4 +27,13 @@ type Flight struct {
 	// Pricing
 	Price    float64
 	Currency string
+}
+
+func (f *Flight) Normalize() {
+	f.Origin = strings.ToUpper(f.Origin)
+	f.Destination = strings.ToUpper(f.Destination)
+
+	if f.Currency == "" {
+		f.Currency = "IDR"
+	}
 }

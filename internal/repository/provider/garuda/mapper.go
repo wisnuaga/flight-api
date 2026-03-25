@@ -20,7 +20,7 @@ func mapToDomain(resp GarudaSearchResponse) []*domain.Flight {
 			currency = f.Price.Currency
 		}
 
-		flights = append(flights, &domain.Flight{
+		flight := &domain.Flight{
 			ID:             f.FlightID,
 			Provider:       "Garuda",
 			FlightNumber:   f.AirlineCode + f.FlightID[len(f.AirlineCode):],
@@ -33,7 +33,9 @@ func mapToDomain(resp GarudaSearchResponse) []*domain.Flight {
 			Currency:       currency,
 			CabinClass:     f.FareClass,
 			AvailableSeats: f.AvailableSeats,
-		})
+		}
+		flight.Normalize()
+		flights = append(flights, flight)
 	}
 
 	return flights
