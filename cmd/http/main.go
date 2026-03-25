@@ -1,28 +1,25 @@
 package main
 
 import (
+	"fmt"
 	"log"
-	"net/http"
+
+	"github.com/wisnuaga/flight-api/internal/config"
+	"github.com/wisnuaga/flight-api/internal/delivery/http/router"
 )
 
 func main() {
-	mux := http.NewServeMux()
+	// Load Configurations
+	cfg := config.LoadConfig()
 
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
+	// Setup router (Gin)
+	r := router.Setup()
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
-
-	port := ":8080"
+	port := fmt.Sprintf(":%s", cfg.Service.Port)
 	log.Printf("Server is starting and listening on port %s...\n", port)
 
-	if err := http.ListenAndServe(port, mux); err != nil {
-		log.Fatalf("Failed to start server: %v\n", err)
+	// Start server
+	if err := r.Run(port); err != nil {
+		log.Fatalf("failed to start server: %v", err)
 	}
 }
