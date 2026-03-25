@@ -7,8 +7,5 @@ import (
 
 func registerFlightRoutes(r *gin.Engine, h *handler.FlightHandler) {
 	flights := r.Group("/flights")
-
-	{
-		flights.POST("/search", h.Search)
-	}
+	flights.POST("/search", h.Search)
 }
