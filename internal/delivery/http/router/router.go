@@ -14,7 +14,7 @@ type Handlers struct {
 }
 
 type Usecases struct {
-	FlightUsecase usecase.FlightUsecase
+	FlightUsecase FlightUsecase
 }
 
 func Setup(cfg *config.Config) *gin.Engine {

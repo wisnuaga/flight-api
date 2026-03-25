@@ -5,11 +5,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/wisnuaga/flight-api/internal/delivery/http/dto"
-	"github.com/wisnuaga/flight-api/internal/usecase"
 )
 
 type FlightHandlerUsecases struct {
-	FlightUsecase usecase.FlightUsecase
+	FlightUsecase FlightUsecase
 }
 
 type FlightHandler struct {
