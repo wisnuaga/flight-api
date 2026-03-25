@@ -1,27 +1,33 @@
 package router
 
 import (
-	"net/http"
-
+	"github.com/gin-gonic/gin"
 	"github.com/wisnuaga/flight-api/internal/delivery/http/handler"
 )
 
 type Handlers struct {
+	Health *handler.HealthHandler
 	Flight *handler.FlightHandler
 }
 
-func Setup(mux *http.ServeMux) {
+func Setup() *gin.Engine {
+	r := gin.Default()
+
+	// Init handlers
 	handlers := initHandlers()
-	registerRoutes(mux, handlers)
+	registerRoutes(r, handlers)
+
+	return r
 }
 
 func initHandlers() Handlers {
 	return Handlers{
+		Health: handler.NewHealthHandler(),
 		Flight: handler.NewFlightHandler(),
 	}
 }
 
-func registerRoutes(mux *http.ServeMux, h Handlers) {
-	registerHealthRoutes(mux)
-	registerFlightRoutes(mux, h.Flight)
+func registerRoutes(r *gin.Engine, h Handlers) {
+	registerHealthRoutes(r, h.Health)
+	registerFlightRoutes(r, h.Flight)
 }

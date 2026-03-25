@@ -1,19 +1,11 @@
 package router
 
 import (
-	"net/http"
+	"github.com/gin-gonic/gin"
+	"github.com/wisnuaga/flight-api/internal/delivery/http/handler"
 )
 
-func registerHealthRoutes(mux *http.ServeMux) {
+func registerHealthRoutes(r *gin.Engine, h *handler.HealthHandler) {
 	// health endpoint
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
+	r.GET("/healthz", h.Check)
 }

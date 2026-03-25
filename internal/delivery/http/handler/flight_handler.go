@@ -1,10 +1,10 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/wisnuaga/flight-api/internal/delivery/http/dto"
 )
 
@@ -14,18 +14,22 @@ func NewFlightHandler() *FlightHandler {
 	return &FlightHandler{}
 }
 
-func (h *FlightHandler) Search(w http.ResponseWriter, r *http.Request) {
+func (h *FlightHandler) Search(c *gin.Context) {
 	// Read req body
 	var req dto.SearchRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request", http.StatusBadRequest)
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid request body",
+		})
 		return
 	}
 
 	// Convert to domain
 	domainReq, err := req.ToDomain()
 	if err != nil {
-		http.Error(w, "invalid date format", http.StatusBadRequest)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid date format",
+		})
 		return
 	}
 
@@ -89,6 +93,5 @@ func (h *FlightHandler) Search(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	c.JSON(http.StatusOK, resp)
 }
