@@ -9,6 +9,13 @@ import (
 
 type Config struct {
 	Service ServiceConfig `envPrefix:"SERVICE_"`
+
+	Providers    []string     `env:"PROVIDERS" envSeparator:","`
+	GarudaConfig GarudaConfig `envPrefix:"GARUDA_"`
+}
+
+type GarudaConfig struct {
+	MockPath string `env:"MOCK_PATH"`
 }
 
 type ServiceConfig struct {
