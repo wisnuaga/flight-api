@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -36,6 +38,15 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *domain.SearchReques
 			defer wg.Done()
 
 			flights, err := p.Search(ctx, req)
+			if err != nil {
+				// Inject traceID if present inside context for observability correlation
+				traceID, _ := ctx.Value("trace_id").(string)
+				slog.Error("flight provider aggregated search failed",
+					slog.String("trace_id", traceID),
+					slog.String("provider", p.Name()),
+					slog.String("error", err.Error()),
+				)
+			}
 
 			resultCh <- &searchResult{
 				flights: flights,
@@ -49,10 +60,12 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *domain.SearchReques
 		close(resultCh)
 	}()
 
-	var allFlights []*domain.Flight
+	bestFlights := make(map[string]*domain.Flight)
 	success := 0
 	failed := 0
 
+	// O(N) Single-pass deduplication directly from the channel stream.
+	// Eradicates the massive 'allFlights' intermediate memory slice entirely!
 	for res := range resultCh {
 		if res.err != nil {
 			failed++
@@ -60,15 +73,28 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *domain.SearchReques
 		}
 
 		success++
-		allFlights = append(allFlights, res.flights...)
+		for _, f := range res.flights {
+			// Code-share deductive grouping heuristic: origin + dest + 5-minute departure/arrival truncation
+			dep := f.DepartureTime.Truncate(5 * time.Minute).Unix()
+			arr := f.ArrivalTime.Truncate(5 * time.Minute).Unix()
+			key := fmt.Sprintf("%s_%s_%d_%d", f.Origin, f.Destination, dep, arr)
+
+			if existing, ok := bestFlights[key]; !ok || f.Price < existing.Price {
+				bestFlights[key] = f
+			}
+		}
 	}
 
-	return u.buildSearchResult(allFlights, req, success, failed), nil
+	// Pack the tightly verified unique flights into a single exact-bound slice
+	var deduplicated []*domain.Flight
+	for _, f := range bestFlights {
+		deduplicated = append(deduplicated, f)
+	}
+
+	return u.buildSearchResult(deduplicated, req, success, failed), nil
 }
 
 func (u *FlightUsecaseImpl) buildSearchResult(flights []*domain.Flight, req *domain.SearchRequest, success, failed int) *domain.SearchResult {
-	flights = u.deduplicateFlights(flights)
-
 	predicates := BuildFilterPredicates(&req.Filter)
 	flights = ApplyFilters(flights, predicates)
 
@@ -83,25 +109,4 @@ func (u *FlightUsecaseImpl) buildSearchResult(flights []*domain.Flight, req *dom
 			FailedCount:  failed,
 		},
 	}
-}
-
-func (u *FlightUsecaseImpl) deduplicateFlights(flights []*domain.Flight) []*domain.Flight {
-	bestFlights := make(map[string]*domain.Flight)
-
-	for _, f := range flights {
-		key := f.FlightNumber + f.DepartureTime.String()
-
-		existing, ok := bestFlights[key]
-		// Retain the flight if it's new, or if its price is strictly cheaper than the previously seen one
-		if !ok || f.Price < existing.Price {
-			bestFlights[key] = f
-		}
-	}
-
-	var result []*domain.Flight
-	for _, f := range bestFlights {
-		result = append(result, f)
-	}
-
-	return result
 }

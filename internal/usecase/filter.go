@@ -85,7 +85,7 @@ func ApplyFilters(flights []*domain.Flight, predicates []FilterPredicate) []*dom
 		return flights
 	}
 
-	var result []*domain.Flight
+	n := 0
 	for _, f := range flights {
 		keep := true
 		for _, predicate := range predicates {
@@ -95,9 +95,14 @@ func ApplyFilters(flights []*domain.Flight, predicates []FilterPredicate) []*dom
 			}
 		}
 		if keep {
-			result = append(result, f)
+			flights[n] = f
+			n++
 		}
 	}
 
-	return result
+	for i := n; i < len(flights); i++ {
+		flights[i] = nil
+	}
+
+	return flights[:n]
 }
