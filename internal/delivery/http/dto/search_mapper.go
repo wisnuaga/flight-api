@@ -13,12 +13,19 @@ func (r *SearchRequest) ToDomain() (domain.SearchRequest, error) {
 		return domain.SearchRequest{}, err
 	}
 
+	var cabinClass *string
+	if r.CabinClass != "" {
+		cabinClass = &r.CabinClass
+	}
+
 	return domain.SearchRequest{
 		Origin:        r.Origin,
 		Destination:   r.Destination,
 		DepartureDate: departureTime,
 		Passengers:    r.Passengers,
-		CabinClass:    r.CabinClass,
+		Filter: domain.SearchFilter{
+			CabinClass: cabinClass,
+		},
 	}, nil
 }
 
@@ -52,7 +59,7 @@ func ToSearchResponse(req *SearchRequest, result *domain.SearchResult) SearchRes
 					TotalMinutes: durationMins,
 					Formatted:    fmt.Sprintf("%dh %dm", hours, mins),
 				},
-				Stops: 0,
+				Stops: f.Stops,
 				Price: Price{
 					Amount:   int64(f.Price),
 					Currency: f.Currency,

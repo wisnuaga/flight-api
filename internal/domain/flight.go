@@ -24,6 +24,9 @@ type Flight struct {
 	CabinClass     string
 	AvailableSeats int
 
+	// Routing info
+	Stops int
+
 	// Pricing
 	Price    float64
 	Currency string

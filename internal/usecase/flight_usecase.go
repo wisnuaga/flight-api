@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"sort"
 	"sync"
 	"time"
 
@@ -64,16 +63,16 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *domain.SearchReques
 		allFlights = append(allFlights, res.flights...)
 	}
 
-	sort.Slice(allFlights, func(i, j int) bool {
-		return allFlights[i].Price < allFlights[j].Price
-	})
-
 	return u.buildSearchResult(allFlights, req), nil
 }
 
 func (u *FlightUsecaseImpl) buildSearchResult(flights []*domain.Flight, req *domain.SearchRequest) *domain.SearchResult {
 	flights = u.deduplicateFlights(flights)
-	flights = u.filterFlights(flights, req)
+
+	predicates := BuildFilterPredicates(&req.Filter)
+	flights = ApplyFilters(flights, predicates)
+
+	ApplySorting(flights, req.Sort)
 
 	return &domain.SearchResult{
 		Flights: flights,
@@ -84,20 +83,6 @@ func (u *FlightUsecaseImpl) buildSearchResult(flights []*domain.Flight, req *dom
 			FailedCount:  len(u.providers) - len(flights),
 		},
 	}
-}
-
-func (u *FlightUsecaseImpl) filterFlights(flights []*domain.Flight, req *domain.SearchRequest) []*domain.Flight {
-	var result []*domain.Flight
-
-	for _, f := range flights {
-		if req.CabinClass != "" && f.CabinClass != req.CabinClass {
-			continue
-		}
-
-		result = append(result, f)
-	}
-
-	return result
 }
 
 func (u *FlightUsecaseImpl) deduplicateFlights(flights []*domain.Flight) []*domain.Flight {
