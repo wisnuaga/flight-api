@@ -15,12 +15,26 @@ func NewFlightHandler() *FlightHandler {
 }
 
 func (h *FlightHandler) Search(w http.ResponseWriter, r *http.Request) {
+	// Read req body
+	var req dto.SearchRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+
+	// Convert to domain
+	domainReq, err := req.ToDomain()
+	if err != nil {
+		http.Error(w, "invalid date format", http.StatusBadRequest)
+		return
+	}
+
 	now := time.Now()
 
 	resp := dto.SearchResponse{
 		SearchCriteria: dto.SearchCriteria{
-			Origin:        "CGK",
-			Destination:   "DPS",
+			Origin:        domainReq.Origin,
+			Destination:   domainReq.Destination,
 			DepartureDate: "2025-12-15",
 			Passengers:    1,
 			CabinClass:    "economy",
