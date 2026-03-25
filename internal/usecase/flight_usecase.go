@@ -16,7 +16,7 @@ type searchResult struct {
 }
 
 type FlightUsecase interface {
-	Search(ctx context.Context, req *domain.SearchRequest) ([]*domain.Flight, error)
+	Search(ctx context.Context, req *domain.SearchRequest) (*domain.SearchResult, error)
 }
 
 type FlightUsecaseImpl struct {
