@@ -9,6 +9,11 @@ import (
 	"github.com/wisnuaga/flight-api/internal/repository/provider"
 )
 
+type searchResult struct {
+	flights []*domain.Flight
+	err     error
+}
+
 type FlightUsecase interface {
 	Search(ctx context.Context, req *domain.SearchRequest) ([]*domain.Flight, error)
 }
@@ -26,7 +31,7 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *domain.SearchReques
 	defer cancel()
 
 	var wg sync.WaitGroup
-	resultCh := make(chan []*domain.Flight, len(u.providers))
+	resultCh := make(chan *searchResult, len(u.providers))
 
 	for _, p := range u.providers {
 		wg.Add(1)
@@ -35,11 +40,11 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *domain.SearchReques
 			defer wg.Done()
 
 			flights, err := p.Search(ctx, req)
-			if err != nil {
-				return
-			}
 
-			resultCh <- flights
+			resultCh <- &searchResult{
+				flights: flights,
+				err:     err,
+			}
 		}(p)
 	}
 
@@ -49,8 +54,17 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *domain.SearchReques
 	}()
 
 	var allFlights []*domain.Flight
-	for flights := range resultCh {
-		allFlights = append(allFlights, flights...)
+	success := 0
+	failed := 0
+
+	for res := range resultCh {
+		if res.err != nil {
+			failed++
+			continue
+		}
+
+		success++
+		allFlights = append(allFlights, res.flights...)
 	}
 
 	return u.buildSearchResult(allFlights, req), nil
