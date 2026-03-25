@@ -21,7 +21,7 @@ func NewFlightUsecase(registry *provider.Registry) *FlightUsecaseImpl {
 	return &FlightUsecaseImpl{providers: registry.GetProviders()}
 }
 
-func (u *FlightUsecaseImpl) Search(ctx context.Context, req *domain.SearchRequest) ([]*domain.Flight, error) {
+func (u *FlightUsecaseImpl) Search(ctx context.Context, req *domain.SearchRequest) (*domain.SearchResult, error) {
 	ctx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
 	defer cancel()
 
@@ -53,5 +53,52 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *domain.SearchReques
 		allFlights = append(allFlights, flights...)
 	}
 
-	return allFlights, nil
+	return u.buildSearchResult(allFlights, req), nil
+}
+
+func (u *FlightUsecaseImpl) buildSearchResult(flights []*domain.Flight, req *domain.SearchRequest) *domain.SearchResult {
+	flights = u.deduplicateFlights(flights)
+	flights = u.filterFlights(flights, req)
+
+	return &domain.SearchResult{
+		Flights: flights,
+		Meta: &domain.SearchMeta{
+			TotalFlights: len(flights),
+			Providers:    len(u.providers),
+			SuccessCount: len(flights),
+			FailedCount:  len(u.providers) - len(flights),
+		},
+	}
+}
+
+func (u *FlightUsecaseImpl) filterFlights(flights []*domain.Flight, req *domain.SearchRequest) []*domain.Flight {
+	var result []*domain.Flight
+
+	for _, f := range flights {
+		if req.CabinClass != "" && f.CabinClass != req.CabinClass {
+			continue
+		}
+
+		result = append(result, f)
+	}
+
+	return result
+}
+
+func (u *FlightUsecaseImpl) deduplicateFlights(flights []*domain.Flight) []*domain.Flight {
+	seen := make(map[string]bool)
+	var result []*domain.Flight
+
+	for _, f := range flights {
+		key := f.FlightNumber + f.DepartureTime.String()
+
+		if seen[key] {
+			continue
+		}
+
+		seen[key] = true
+		result = append(result, f)
+	}
+
+	return result
 }
