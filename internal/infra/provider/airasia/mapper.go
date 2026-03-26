@@ -25,11 +25,15 @@ func mapToDomain(resp AirAsiaResponse, req *entity.SearchRequest) []*entity.Flig
 		}
 
 		flight := entity.Flight{
-			ID:             f.FlightCode,
-			Provider:       "AirAsia",
-			FlightNumber:   f.FlightCode,
-			Origin:         f.FromAirport,
-			Destination:    f.ToAirport,
+			ID:           f.FlightCode,
+			Provider:     "AirAsia",
+			FlightNumber: f.FlightCode,
+			Origin: entity.Location{
+				Airport: f.FromAirport,
+			},
+			Destination: entity.Location{
+				Airport: f.ToAirport,
+			},
 			DepartureTime:  dep,
 			ArrivalTime:    arr,
 			Price:          decimal.NewFromFloat(f.PriceIDR),

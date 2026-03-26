@@ -29,11 +29,15 @@ func mapToDomain(resp GarudaSearchResponse) []*entity.Flight {
 
 		// Initial Raw Flight Mapping
 		flight := entity.Flight{
-			ID:             f.FlightID,
-			Provider:       "Garuda",
-			FlightNumber:   f.AirlineCode + f.FlightID[len(f.AirlineCode):],
-			Origin:         f.Departure.Airport,
-			Destination:    f.Arrival.Airport,
+			ID:           f.FlightID,
+			Provider:     "Garuda",
+			FlightNumber: f.AirlineCode + f.FlightID[len(f.AirlineCode):],
+			Origin: entity.Location{
+				Airport: f.Departure.Airport,
+			},
+			Destination: entity.Location{
+				Airport: f.Arrival.Airport,
+			},
 			DepartureTime:  dep,
 			ArrivalTime:    arr,
 			Price:          decimal.NewFromFloat(price),

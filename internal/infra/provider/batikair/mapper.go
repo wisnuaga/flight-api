@@ -26,11 +26,15 @@ func mapToDomain(resp BatikResponse, req *entity.SearchRequest) []*entity.Flight
 		}
 
 		flight := entity.Flight{
-			ID:             f.FlightNumber,
-			Provider:       "Batik Air",
-			FlightNumber:   f.FlightNumber,
-			Origin:         f.Origin,
-			Destination:    f.Destination,
+			ID:           f.FlightNumber,
+			Provider:     "Batik Air",
+			FlightNumber: f.FlightNumber,
+			Origin: entity.Location{
+				Airport: f.Origin,
+			},
+			Destination: entity.Location{
+				Airport: f.Destination,
+			},
 			DepartureTime:  dep,
 			ArrivalTime:    arr,
 			Price:          decimal.NewFromFloat(f.Fare.TotalPrice),

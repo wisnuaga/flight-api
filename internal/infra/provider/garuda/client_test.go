@@ -9,10 +9,11 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	"github.com/wisnuaga/flight-api/internal/infra/provider/garuda"
+	"github.com/wisnuaga/flight-api/internal/test_helper"
 )
 
 func TestClient_Name(t *testing.T) {
-	client := garuda.NewClient("../../../../../tests/factory/garuda_search_response.json")
+	client := garuda.NewClient(test_helper.GetTestDataPath("garuda_search_response.json"))
 	if got := client.Name(); got != "Garuda" {
 		t.Errorf("Name() = %q, want %q", got, "Garuda")
 	}
@@ -45,7 +46,7 @@ func TestClient_Search(t *testing.T) {
 	}{
 		{
 			name:     "success - returns mapped flights from valid mock file",
-			mockPath: "../../../../../tests/factory/garuda_search_response.json",
+			mockPath: test_helper.GetTestDataPath("garuda_search_response.json"),
 			ctx: func() (context.Context, context.CancelFunc) {
 				return context.WithTimeout(context.Background(), 5*time.Second)
 			},
@@ -57,8 +58,8 @@ func TestClient_Search(t *testing.T) {
 				ID:             "GA400",
 				Provider:       "Garuda",
 				FlightNumber:   "GA400",
-				Origin:         "CGK",
-				Destination:    "DPS",
+				Origin:         entity.Location{Airport: "CGK"},
+				Destination:    entity.Location{Airport: "DPS"},
 				DepartureTime:  mustParseTime("2025-12-15T06:00:00+07:00"),
 				ArrivalTime:    mustParseTime("2025-12-15T08:50:00+08:00"),
 				Duration:       110 * time.Minute,
@@ -70,7 +71,7 @@ func TestClient_Search(t *testing.T) {
 		},
 		{
 			name:     "error - mock file does not exist",
-			mockPath: "../../../../../tests/factory/nonexistent.json",
+			mockPath: test_helper.GetTestDataPath("nonexistent.json"),
 			ctx: func() (context.Context, context.CancelFunc) {
 				return context.WithTimeout(context.Background(), 5*time.Second)
 			},
@@ -80,7 +81,7 @@ func TestClient_Search(t *testing.T) {
 		},
 		{
 			name:     "error - context cancelled before response",
-			mockPath: "../../../../../tests/factory/garuda_search_response.json",
+			mockPath: test_helper.GetTestDataPath("garuda_search_response.json"),
 			ctx: func() (context.Context, context.CancelFunc) {
 				return context.WithTimeout(context.Background(), 10*time.Millisecond)
 			},
@@ -136,12 +137,11 @@ func assertFlight(t *testing.T, got, want *entity.Flight) {
 		{"ID", got.ID, want.ID},
 		{"Provider", got.Provider, want.Provider},
 		{"FlightNumber", got.FlightNumber, want.FlightNumber},
-		{"Origin", got.Origin, want.Origin},
-		{"Destination", got.Destination, want.Destination},
+		{"Origin.Airport", got.Origin.Airport, want.Origin.Airport},
+		{"Destination.Airport", got.Destination.Airport, want.Destination.Airport},
 		{"DepartureTime", got.DepartureTime.UTC(), want.DepartureTime.UTC()},
 		{"ArrivalTime", got.ArrivalTime.UTC(), want.ArrivalTime.UTC()},
 		{"Duration", got.Duration, want.Duration},
-		{"Price", got.Price, want.Price},
 		{"Currency", got.Currency, want.Currency},
 		{"CabinClass", got.CabinClass, want.CabinClass},
 		{"AvailableSeats", got.AvailableSeats, want.AvailableSeats},
@@ -151,6 +151,11 @@ func assertFlight(t *testing.T, got, want *entity.Flight) {
 		if f.got != f.exp {
 			t.Errorf("Flight.%s = %v, want %v", f.name, f.got, f.exp)
 		}
+	}
+
+	// Compare price separately using decimal comparison
+	if !got.Price.Equal(want.Price) {
+		t.Errorf("Flight.Price = %v, want %v", got.Price, want.Price)
 	}
 }
 

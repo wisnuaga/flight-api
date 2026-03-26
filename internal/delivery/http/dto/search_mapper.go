@@ -73,12 +73,14 @@ func ToSearchResponse(req *SearchRequest, result *entity.SearchResult) SearchRes
 				},
 				FlightNumber: f.FlightNumber,
 				Departure: Location{
-					Airport:   f.Origin,
+					Airport:   f.Origin.Airport,
+					City:      f.Origin.City,
 					Datetime:  f.DepartureTime.Format(time.RFC3339),
 					Timestamp: f.DepartureTime.Unix(),
 				},
 				Arrival: Location{
-					Airport:   f.Destination,
+					Airport:   f.Destination.Airport,
+					City:      f.Destination.City,
 					Datetime:  f.ArrivalTime.Format(time.RFC3339),
 					Timestamp: f.ArrivalTime.Unix(),
 				},

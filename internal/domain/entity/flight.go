@@ -1,7 +1,6 @@
 package entity
 
 import (
-	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -14,8 +13,8 @@ type Flight struct {
 	FlightNumber string
 
 	// Route
-	Origin      string
-	Destination string
+	Origin      Location
+	Destination Location
 
 	// Schedule
 	DepartureTime  time.Time
@@ -32,8 +31,8 @@ type Flight struct {
 
 // Normalize applies basic field normalisations on the Flight value.
 func (f *Flight) Normalize() {
-	f.Origin = strings.ToUpper(f.Origin)
-	f.Destination = strings.ToUpper(f.Destination)
+	f.Origin.Normalize()
+	f.Destination.Normalize()
 
 	if f.Currency == "" {
 		f.Currency = "IDR"
@@ -72,7 +71,7 @@ func NormalizeFlight(f Flight) Flight {
 
 // IsValidFlight validates that a Flight meets minimum business rules.
 func IsValidFlight(f Flight) bool {
-	if f.Origin == "" || f.Destination == "" {
+	if f.Origin.Airport == "" || f.Destination.Airport == "" {
 		return false
 	}
 

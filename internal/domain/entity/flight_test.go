@@ -43,8 +43,8 @@ func TestIsValidFlight_Valid(t *testing.T) {
 	dep := time.Now()
 
 	f := entity.Flight{
-		Origin:        "CGK",
-		Destination:   "DPS",
+		Origin:        entity.Location{Airport: "CGK"},
+		Destination:   entity.Location{Airport: "DPS"},
 		FlightNumber:  "FL100",
 		DepartureTime: dep,
 		ArrivalTime:   dep.Add(2 * time.Hour),
