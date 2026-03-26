@@ -1,6 +1,7 @@
 package batikair
 
 import (
+	"github.com/shopspring/decimal"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	"github.com/wisnuaga/flight-api/internal/util"
 )
@@ -32,7 +33,7 @@ func mapToDomain(resp BatikResponse, req *entity.SearchRequest) []*entity.Flight
 			Destination:    f.Destination,
 			DepartureTime:  dep,
 			ArrivalTime:    arr,
-			Price:          f.Fare.TotalPrice,
+			Price:          decimal.NewFromFloat(f.Fare.TotalPrice),
 			Currency:       f.Fare.CurrencyCode,
 			CabinClass:     f.Fare.Class,
 			AvailableSeats: f.SeatsAvailable,

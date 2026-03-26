@@ -23,13 +23,13 @@ func (c *flightFilterCommandImpl) buildPredicates(filter *entity.SearchFilter) [
 
 	if filter.MinPrice != nil {
 		predicates = append(predicates, func(f *entity.Flight) bool {
-			return f.Price >= *filter.MinPrice
+			return f.Price.GreaterThanOrEqual(*filter.MinPrice)
 		})
 	}
 
 	if filter.MaxPrice != nil {
 		predicates = append(predicates, func(f *entity.Flight) bool {
-			return f.Price <= *filter.MaxPrice
+			return f.Price.LessThanOrEqual(*filter.MaxPrice)
 		})
 	}
 

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	"github.com/wisnuaga/flight-api/internal/infra/provider/garuda"
 )
@@ -61,7 +62,7 @@ func TestClient_Search(t *testing.T) {
 				DepartureTime:  mustParseTime("2025-12-15T06:00:00+07:00"),
 				ArrivalTime:    mustParseTime("2025-12-15T08:50:00+08:00"),
 				Duration:       110 * time.Minute,
-				Price:          1250000,
+				Price:          decimal.NewFromInt(1250000),
 				Currency:       "IDR",
 				CabinClass:     "economy",
 				AvailableSeats: 28,

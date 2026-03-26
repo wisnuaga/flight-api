@@ -3,6 +3,8 @@ package entity
 import (
 	"strings"
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 type Flight struct {
@@ -16,20 +18,16 @@ type Flight struct {
 	Destination string
 
 	// Schedule
-	DepartureTime time.Time
-	ArrivalTime   time.Time
-	Duration      time.Duration
-
-	// Seat info
+	DepartureTime  time.Time
+	ArrivalTime    time.Time
+	Duration       time.Duration
+	Price          decimal.Decimal
+	Currency       string
 	CabinClass     string
 	AvailableSeats int
 
 	// Routing info
 	Stops int
-
-	// Pricing
-	Price    float64
-	Currency string
 }
 
 // Normalize applies basic field normalisations on the Flight value.
@@ -78,7 +76,7 @@ func IsValidFlight(f Flight) bool {
 		return false
 	}
 
-	if f.Price <= 0 {
+	if f.Price.LessThanOrEqual(decimal.Zero) {
 		return false
 	}
 

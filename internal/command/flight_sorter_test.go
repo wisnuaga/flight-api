@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/wisnuaga/flight-api/internal/command"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
@@ -14,9 +15,9 @@ func TestFlightSortCommand_Execute(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC)
 
 	flights := []*entity.Flight{
-		{ID: "F1", Price: 2000, Duration: 120 * time.Minute, DepartureTime: baseTime.Add(2 * time.Hour), ArrivalTime: baseTime.Add(4 * time.Hour)},
-		{ID: "F2", Price: 1000, Duration: 180 * time.Minute, DepartureTime: baseTime.Add(1 * time.Hour), ArrivalTime: baseTime.Add(4 * time.Hour)},
-		{ID: "F3", Price: 1500, Duration: 90 * time.Minute, DepartureTime: baseTime, ArrivalTime: baseTime.Add(1*time.Hour + 30*time.Minute)},
+		{ID: "F1", Price: decimal.NewFromInt(2000), Duration: 120 * time.Minute, DepartureTime: baseTime.Add(2 * time.Hour), ArrivalTime: baseTime.Add(4 * time.Hour)},
+		{ID: "F2", Price: decimal.NewFromInt(1000), Duration: 180 * time.Minute, DepartureTime: baseTime.Add(1 * time.Hour), ArrivalTime: baseTime.Add(4 * time.Hour)},
+		{ID: "F3", Price: decimal.NewFromInt(1500), Duration: 90 * time.Minute, DepartureTime: baseTime, ArrivalTime: baseTime.Add(1*time.Hour + 30*time.Minute)},
 	}
 
 	t.Run("sort by price asc (default mapping)", func(t *testing.T) {

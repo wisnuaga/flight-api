@@ -3,6 +3,7 @@ package lionair
 import (
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 )
 
@@ -36,7 +37,7 @@ func mapToDomain(resp LionResponse, req *entity.SearchRequest) []*entity.Flight 
 			Destination:    f.Route.To.Code,
 			DepartureTime:  dep,
 			ArrivalTime:    arr,
-			Price:          f.Pricing.Total,
+			Price:          decimal.NewFromFloat(f.Pricing.Total),
 			Currency:       f.Pricing.Currency,
 			CabinClass:     f.Pricing.FareType,
 			AvailableSeats: f.SeatsLeft,

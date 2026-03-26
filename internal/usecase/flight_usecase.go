@@ -116,7 +116,8 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *entity.SearchReques
 			arr := f.ArrivalTime.Truncate(5 * time.Minute).Unix()
 			key := fmt.Sprintf("%s_%s_%d_%d", f.Origin, f.Destination, dep, arr)
 
-			if existing, ok := bestFlights[key]; !ok || f.Price < existing.Price {
+			// Simple de-duplication: keep the cheaper flight
+			if existing, ok := bestFlights[key]; !ok || f.Price.LessThan(existing.Price) {
 				bestFlights[key] = f
 			}
 		}

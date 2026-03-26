@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	"github.com/wisnuaga/flight-api/internal/infra/provider/lionair"
 )
@@ -48,7 +49,7 @@ func TestClient_Search(t *testing.T) {
 				DepartureTime:  mustParseTime("2025-12-15T05:30:00+07:00"),
 				ArrivalTime:    mustParseTime("2025-12-15T08:15:00+08:00"),
 				Duration:       105 * time.Minute,
-				Price:          950000,
+				Price:          decimal.NewFromInt(950000),
 				Currency:       "IDR",
 				CabinClass:     "ECONOMY",
 				AvailableSeats: 45,

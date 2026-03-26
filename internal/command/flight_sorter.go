@@ -3,6 +3,7 @@ package command
 import (
 	"sort"
 
+	"github.com/shopspring/decimal"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	"github.com/wisnuaga/flight-api/internal/port"
 )
@@ -27,7 +28,7 @@ func (c *flightSortCommandImpl) Execute(flights []*entity.Flight, sortParam enti
 	}
 
 	// Compute boundaries for best-value normalisation
-	var minPrice, maxPrice float64
+	var minPrice, maxPrice decimal.Decimal
 	var minDuration, maxDuration int64
 
 	if field == entity.SortByBestValue && len(flights) > 0 {
@@ -37,10 +38,10 @@ func (c *flightSortCommandImpl) Execute(flights []*entity.Flight, sortParam enti
 		maxDuration = int64(flights[0].Duration)
 
 		for _, f := range flights {
-			if f.Price < minPrice {
+			if f.Price.LessThan(minPrice) {
 				minPrice = f.Price
 			}
-			if f.Price > maxPrice {
+			if f.Price.GreaterThan(maxPrice) {
 				maxPrice = f.Price
 			}
 			fDur := int64(f.Duration)
@@ -69,7 +70,7 @@ func (c *flightSortCommandImpl) Execute(flights []*entity.Flight, sortParam enti
 		var isLess bool
 		switch field {
 		case entity.SortByPrice:
-			isLess = f1.Price < f2.Price
+			isLess = f1.Price.LessThan(f2.Price)
 		case entity.SortByDuration:
 			isLess = f1.Duration < f2.Duration
 		case entity.SortByDeparture:
@@ -81,7 +82,7 @@ func (c *flightSortCommandImpl) Execute(flights []*entity.Flight, sortParam enti
 			score2 := c.calculateBestValueScore(f2, minPrice, maxPrice, minDuration, maxDuration, priceWeight, durationWeight)
 			isLess = score1 < score2
 		default:
-			isLess = f1.Price < f2.Price
+			isLess = f1.Price.LessThan(f2.Price)
 		}
 
 		if order == entity.SortDesc {
@@ -92,13 +93,13 @@ func (c *flightSortCommandImpl) Execute(flights []*entity.Flight, sortParam enti
 }
 
 // calculateBestValueScore returns a normalised 0-1 score for a flight (lower = better value).
-func (c *flightSortCommandImpl) calculateBestValueScore(f *entity.Flight, minPrice, maxPrice float64, minDur, maxDur int64, weightPrice, weightDur float64) float64 {
-	priceRange := maxPrice - minPrice
+func (c *flightSortCommandImpl) calculateBestValueScore(f *entity.Flight, minPrice, maxPrice decimal.Decimal, minDur, maxDur int64, weightPrice, weightDur float64) float64 {
+	priceRange := maxPrice.Sub(minPrice)
 	durRange := float64(maxDur - minDur)
 
 	var normPrice float64
-	if priceRange > 0 {
-		normPrice = (f.Price - minPrice) / priceRange
+	if priceRange.GreaterThan(decimal.Zero) {
+		normPrice = f.Price.Sub(minPrice).Div(priceRange).InexactFloat64()
 	}
 
 	var normDur float64

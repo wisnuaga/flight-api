@@ -88,9 +88,9 @@ func ToSearchResponse(req *SearchRequest, result *entity.SearchResult) SearchRes
 				},
 				Stops: f.Stops,
 				Price: Price{
-					Amount:    int64(f.Price),
+					Amount:    f.Price.IntPart(),
 					Currency:  f.Currency,
-					Formatted: util.FormatPrice(int64(f.Price), f.Currency),
+					Formatted: fmt.Sprintf("%s %d", f.Currency, f.Price.IntPart()),
 				},
 				AvailableSeats: f.AvailableSeats,
 				CabinClass:     f.CabinClass,

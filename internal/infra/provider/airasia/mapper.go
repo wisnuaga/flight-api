@@ -1,6 +1,7 @@
 package airasia
 
 import (
+	"github.com/shopspring/decimal"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 )
 
@@ -31,7 +32,7 @@ func mapToDomain(resp AirAsiaResponse, req *entity.SearchRequest) []*entity.Flig
 			Destination:    f.ToAirport,
 			DepartureTime:  dep,
 			ArrivalTime:    arr,
-			Price:          f.PriceIDR,
+			Price:          decimal.NewFromFloat(f.PriceIDR),
 			Currency:       "IDR",
 			CabinClass:     f.CabinClass,
 			AvailableSeats: f.Seats,

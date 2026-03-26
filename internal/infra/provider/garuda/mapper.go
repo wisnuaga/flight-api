@@ -1,6 +1,7 @@
 package garuda
 
 import (
+	"github.com/shopspring/decimal"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	"github.com/wisnuaga/flight-api/internal/util"
 )
@@ -35,7 +36,7 @@ func mapToDomain(resp GarudaSearchResponse) []*entity.Flight {
 			Destination:    f.Arrival.Airport,
 			DepartureTime:  dep,
 			ArrivalTime:    arr,
-			Price:          price,
+			Price:          decimal.NewFromFloat(price),
 			Currency:       currency,
 			CabinClass:     f.FareClass,
 			AvailableSeats: f.AvailableSeats,

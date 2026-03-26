@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 )
 
@@ -30,7 +31,7 @@ func TestIsValidFlight_Invalid(t *testing.T) {
 	f := entity.Flight{
 		DepartureTime: dep,
 		ArrivalTime:   dep.Add(-2 * time.Hour), // arrival before departure
-		Price:         500,
+		Price:         decimal.NewFromInt(500),
 	}
 
 	if entity.IsValidFlight(f) {
@@ -48,7 +49,7 @@ func TestIsValidFlight_Valid(t *testing.T) {
 		DepartureTime: dep,
 		ArrivalTime:   dep.Add(2 * time.Hour),
 		Duration:      2 * time.Hour,
-		Price:         500,
+		Price:         decimal.NewFromInt(500),
 	}
 
 	if !entity.IsValidFlight(f) {

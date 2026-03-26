@@ -4,14 +4,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/wisnuaga/flight-api/internal/command"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 )
 
-func ptrFloat(f float64) *float64 { return &f }
-func ptrInt(i int) *int           { return &i }
-func ptrString(s string) *string  { return &s }
+func ptrDecimal(d float64) *decimal.Decimal { a := decimal.NewFromFloat(d); return &a }
+func ptrInt(i int) *int                     { return &i }
+func ptrString(s string) *string            { return &s }
 
 func TestFlightFilterCommand_Execute(t *testing.T) {
 	cmd := command.NewFlightFilterCommand()
@@ -19,15 +20,15 @@ func TestFlightFilterCommand_Execute(t *testing.T) {
 
 	flights := []*entity.Flight{
 		{
-			ID: "1", Price: 1000, Stops: 0, Provider: "Garuda", CabinClass: "economy",
+			ID: "1", Price: decimal.NewFromInt(1000), Stops: 0, Provider: "Garuda", CabinClass: "economy",
 			DepartureTime: baseTime, ArrivalTime: baseTime.Add(2 * time.Hour), Duration: 120 * time.Minute,
 		},
 		{
-			ID: "2", Price: 2000, Stops: 1, Provider: "LionAir", CabinClass: "business",
+			ID: "2", Price: decimal.NewFromInt(2000), Stops: 1, Provider: "LionAir", CabinClass: "business",
 			DepartureTime: baseTime.Add(1 * time.Hour), ArrivalTime: baseTime.Add(4 * time.Hour), Duration: 180 * time.Minute,
 		},
 		{
-			ID: "3", Price: 1500, Stops: 0, Provider: "AirAsia", CabinClass: "economy",
+			ID: "3", Price: decimal.NewFromInt(1500), Stops: 0, Provider: "AirAsia", CabinClass: "economy",
 			DepartureTime: baseTime.Add(2 * time.Hour), ArrivalTime: baseTime.Add(5 * time.Hour), Duration: 180 * time.Minute,
 		},
 	}
@@ -42,7 +43,7 @@ func TestFlightFilterCommand_Execute(t *testing.T) {
 	})
 
 	t.Run("filter by max price", func(t *testing.T) {
-		f := &entity.SearchFilter{MaxPrice: ptrFloat(1600)}
+		f := &entity.SearchFilter{MaxPrice: ptrDecimal(1600)}
 		copied := append([]*entity.Flight(nil), flights...)
 		res := cmd.Execute(copied, f)
 		assert.Len(t, res, 2)

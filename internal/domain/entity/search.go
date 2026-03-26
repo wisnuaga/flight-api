@@ -1,6 +1,10 @@
 package entity
 
-import "time"
+import (
+	"time"
+
+	"github.com/shopspring/decimal"
+)
 
 type SearchRequest struct {
 	Origin        string
@@ -14,8 +18,8 @@ type SearchRequest struct {
 
 type SearchFilter struct {
 	// Price filters
-	MinPrice *float64
-	MaxPrice *float64
+	MinPrice *decimal.Decimal
+	MaxPrice *decimal.Decimal
 
 	// Stops filters
 	MaxStops *int
