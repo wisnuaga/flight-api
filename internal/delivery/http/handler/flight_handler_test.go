@@ -2,7 +2,6 @@ package handler_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -11,20 +10,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	testifymock "github.com/stretchr/testify/mock"
 	"github.com/wisnuaga/flight-api/internal/delivery/http/handler"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
+	"github.com/wisnuaga/flight-api/tests/mock"
 )
-
-type mockFlightUsecase struct {
-	mockSearch func(ctx context.Context, req *entity.SearchRequest) (*entity.SearchResult, error)
-}
-
-func (m *mockFlightUsecase) Search(ctx context.Context, req *entity.SearchRequest) (*entity.SearchResult, error) {
-	if m.mockSearch != nil {
-		return m.mockSearch(ctx, req)
-	}
-	return nil, nil
-}
 
 func setupTestRouter(h *handler.FlightHandler) *gin.Engine {
 	gin.SetMode(gin.TestMode)
@@ -34,28 +24,25 @@ func setupTestRouter(h *handler.FlightHandler) *gin.Engine {
 }
 
 func TestFlightHandler_Search(t *testing.T) {
-	usecaseMock := &mockFlightUsecase{}
-	h := handler.NewFlightHandler(&handler.FlightHandlerUsecases{
-		FlightUsecase: usecaseMock,
-	})
-
-	r := setupTestRouter(h)
-
 	t.Run("success", func(t *testing.T) {
-		usecaseMock.mockSearch = func(ctx context.Context, req *entity.SearchRequest) (*entity.SearchResult, error) {
-			return &entity.SearchResult{
-				Flights: []*entity.Flight{
-					{
-						ID:            "F1",
-						Provider:      "Garuda",
-						FlightNumber:  "GA123",
-						DepartureTime: time.Now(),
-						ArrivalTime:   time.Now().Add(2 * time.Hour),
-					},
+		usecaseMock := new(mock.MockFlightUsecase)
+		h := handler.NewFlightHandler(&handler.FlightHandlerUsecases{
+			FlightUsecase: usecaseMock,
+		})
+		r := setupTestRouter(h)
+
+		usecaseMock.On("Search", testifymock.Anything, testifymock.AnythingOfType("*entity.SearchRequest")).Return(&entity.SearchResult{
+			Flights: []*entity.Flight{
+				{
+					ID:            "F1",
+					Provider:      "Garuda",
+					FlightNumber:  "GA123",
+					DepartureTime: time.Now(),
+					ArrivalTime:   time.Now().Add(2 * time.Hour),
 				},
-				Meta: &entity.SearchMeta{TotalFlights: 1},
-			}, nil
-		}
+			},
+			Meta: &entity.SearchMeta{TotalFlights: 1},
+		}, nil).Once()
 
 		body := map[string]interface{}{
 			"origin":         "CGK",
@@ -64,22 +51,26 @@ func TestFlightHandler_Search(t *testing.T) {
 			"passengers":     1,
 		}
 		jsonBody, _ := json.Marshal(body)
-
 		req, _ := http.NewRequest("POST", "/api/v1/search", bytes.NewBuffer(jsonBody))
 		req.Header.Set("Content-Type", "application/json")
-
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 
 		if w.Code != http.StatusOK {
 			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 		}
+		usecaseMock.AssertExpectations(t)
 	})
 
 	t.Run("invalid json", func(t *testing.T) {
+		usecaseMock := new(mock.MockFlightUsecase)
+		h := handler.NewFlightHandler(&handler.FlightHandlerUsecases{
+			FlightUsecase: usecaseMock,
+		})
+		r := setupTestRouter(h)
+
 		req, _ := http.NewRequest("POST", "/api/v1/search", bytes.NewBufferString("{invalid json}"))
 		req.Header.Set("Content-Type", "application/json")
-
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 
@@ -89,6 +80,12 @@ func TestFlightHandler_Search(t *testing.T) {
 	})
 
 	t.Run("invalid date bounds fallback", func(t *testing.T) {
+		usecaseMock := new(mock.MockFlightUsecase)
+		h := handler.NewFlightHandler(&handler.FlightHandlerUsecases{
+			FlightUsecase: usecaseMock,
+		})
+		r := setupTestRouter(h)
+
 		body := map[string]interface{}{
 			"origin":         "CGK",
 			"destination":    "DPS",
@@ -107,9 +104,13 @@ func TestFlightHandler_Search(t *testing.T) {
 	})
 
 	t.Run("usecase error", func(t *testing.T) {
-		usecaseMock.mockSearch = func(ctx context.Context, req *entity.SearchRequest) (*entity.SearchResult, error) {
-			return nil, errors.New("upstream failed")
-		}
+		usecaseMock := new(mock.MockFlightUsecase)
+		h := handler.NewFlightHandler(&handler.FlightHandlerUsecases{
+			FlightUsecase: usecaseMock,
+		})
+		r := setupTestRouter(h)
+
+		usecaseMock.On("Search", testifymock.Anything, testifymock.AnythingOfType("*entity.SearchRequest")).Return(nil, errors.New("upstream failed")).Once()
 
 		body := map[string]interface{}{
 			"origin":         "CGK",
@@ -126,5 +127,6 @@ func TestFlightHandler_Search(t *testing.T) {
 		if w.Code != http.StatusInternalServerError {
 			t.Errorf("Expected status %d, got %d", http.StatusInternalServerError, w.Code)
 		}
+		usecaseMock.AssertExpectations(t)
 	})
 }

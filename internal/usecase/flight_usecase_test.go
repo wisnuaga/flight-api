@@ -1,4 +1,4 @@
-package usecase
+package usecase_test
 
 import (
 	"context"
@@ -6,33 +6,26 @@ import (
 	"testing"
 	"time"
 
+	testifymock "github.com/stretchr/testify/mock"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	"github.com/wisnuaga/flight-api/internal/port"
+	"github.com/wisnuaga/flight-api/internal/usecase"
+	"github.com/wisnuaga/flight-api/tests/mock"
 )
 
-type mockProvider struct {
-	name    string
-	flights []*entity.Flight
-	err     error
+func newMockProvider(name string, flights []*entity.Flight, err error) *mock.MockFlightProvider {
+	m := new(mock.MockFlightProvider)
+	m.On("Name").Return(name)
+	m.On("Search", testifymock.Anything, testifymock.Anything).Return(flights, err)
+	return m
 }
 
-func (m *mockProvider) Name() string {
-	return m.name
+func newMockCache() *mock.MockFlightCache {
+	m := new(mock.MockFlightCache)
+	m.On("Get", testifymock.Anything, testifymock.Anything).Return(nil, false)
+	m.On("Set", testifymock.Anything, testifymock.Anything, testifymock.Anything).Return()
+	return m
 }
-
-func (m *mockProvider) Search(ctx context.Context, req *entity.SearchRequest) ([]*entity.Flight, error) {
-	// Simulate small latency
-	time.Sleep(10 * time.Millisecond)
-	return m.flights, m.err
-}
-
-type mockCache struct{}
-
-func (m *mockCache) Get(provider string, req *entity.SearchRequest) ([]*entity.Flight, bool) {
-	return nil, false
-}
-
-func (m *mockCache) Set(provider string, req *entity.SearchRequest, flights []*entity.Flight) {}
 
 func ptr[T any](v T) *T {
 	return &v
@@ -58,8 +51,8 @@ func TestFlightUsecase_Search(t *testing.T) {
 		{
 			name: "success - multiple providers, default sort asc price",
 			providers: []port.FlightProvider{
-				&mockProvider{name: "Alpha", flights: []*entity.Flight{mockFlights[0], mockFlights[2]}, err: nil},
-				&mockProvider{name: "Beta", flights: []*entity.Flight{mockFlights[1]}, err: nil},
+				newMockProvider("Alpha", []*entity.Flight{mockFlights[0], mockFlights[2]}, nil),
+				newMockProvider("Beta", []*entity.Flight{mockFlights[1]}, nil),
 			},
 			input:         &entity.SearchRequest{},
 			expectedLen:   3,
@@ -68,8 +61,8 @@ func TestFlightUsecase_Search(t *testing.T) {
 		{
 			name: "success - filter by max price 1500",
 			providers: []port.FlightProvider{
-				&mockProvider{name: "Alpha", flights: []*entity.Flight{mockFlights[0], mockFlights[2]}, err: nil},
-				&mockProvider{name: "Beta", flights: []*entity.Flight{mockFlights[1]}, err: nil},
+				newMockProvider("Alpha", []*entity.Flight{mockFlights[0], mockFlights[2]}, nil),
+				newMockProvider("Beta", []*entity.Flight{mockFlights[1]}, nil),
 			},
 			input: &entity.SearchRequest{
 				Filter: entity.SearchFilter{
@@ -82,8 +75,8 @@ func TestFlightUsecase_Search(t *testing.T) {
 		{
 			name: "success - sort by duration descending",
 			providers: []port.FlightProvider{
-				&mockProvider{name: "Alpha", flights: []*entity.Flight{mockFlights[0], mockFlights[2]}, err: nil},
-				&mockProvider{name: "Beta", flights: []*entity.Flight{mockFlights[1]}, err: nil},
+				newMockProvider("Alpha", []*entity.Flight{mockFlights[0], mockFlights[2]}, nil),
+				newMockProvider("Beta", []*entity.Flight{mockFlights[1]}, nil),
 			},
 			input: &entity.SearchRequest{
 				Sort: entity.SearchSort{
@@ -97,8 +90,8 @@ func TestFlightUsecase_Search(t *testing.T) {
 		{
 			name: "success - one provider fails, results still returned",
 			providers: []port.FlightProvider{
-				&mockProvider{name: "Alpha", flights: nil, err: errors.New("timeout")},
-				&mockProvider{name: "Beta", flights: []*entity.Flight{mockFlights[1]}, err: nil},
+				newMockProvider("Alpha", nil, errors.New("timeout")),
+				newMockProvider("Beta", []*entity.Flight{mockFlights[1]}, nil),
 			},
 			input:         &entity.SearchRequest{},
 			expectedLen:   1,
@@ -107,8 +100,8 @@ func TestFlightUsecase_Search(t *testing.T) {
 		{
 			name: "success - filter by max stops",
 			providers: []port.FlightProvider{
-				&mockProvider{name: "Alpha", flights: []*entity.Flight{mockFlights[0], mockFlights[2]}, err: nil},
-				&mockProvider{name: "Beta", flights: []*entity.Flight{mockFlights[1]}, err: nil},
+				newMockProvider("Alpha", []*entity.Flight{mockFlights[0], mockFlights[2]}, nil),
+				newMockProvider("Beta", []*entity.Flight{mockFlights[1]}, nil),
 			},
 			input: &entity.SearchRequest{
 				Filter: entity.SearchFilter{
@@ -121,8 +114,8 @@ func TestFlightUsecase_Search(t *testing.T) {
 		{
 			name: "success - deduplication keeps cheaper flight",
 			providers: []port.FlightProvider{
-				&mockProvider{name: "Alpha", flights: []*entity.Flight{mockFlights[0]}, err: nil}, // F1 (1500)
-				&mockProvider{name: "Gamma", flights: []*entity.Flight{mockFlights[3]}, err: nil}, // F4 (1200) - same route/time
+				newMockProvider("Alpha", []*entity.Flight{mockFlights[0]}, nil), // F1 (1500)
+				newMockProvider("Gamma", []*entity.Flight{mockFlights[3]}, nil), // F4 (1200) - same route/time
 			},
 			input:         &entity.SearchRequest{},
 			expectedLen:   1,    // Should deduplicate F1 and F4 into 1
@@ -131,9 +124,9 @@ func TestFlightUsecase_Search(t *testing.T) {
 		{
 			name: "success - best value ranking",
 			providers: []port.FlightProvider{
-				&mockProvider{name: "Alpha", flights: []*entity.Flight{mockFlights[2]}, err: nil}, // F3 (price 2000, dur 90)
-				&mockProvider{name: "Beta", flights: []*entity.Flight{mockFlights[1]}, err: nil},  // F2 (price 1000, dur 150)
-				&mockProvider{name: "Gamma", flights: []*entity.Flight{mockFlights[3]}, err: nil}, // F4 (price 1200, dur 120)
+				newMockProvider("Alpha", []*entity.Flight{mockFlights[2]}, nil), // F3 (price 2000, dur 90)
+				newMockProvider("Beta", []*entity.Flight{mockFlights[1]}, nil),  // F2 (price 1000, dur 150)
+				newMockProvider("Gamma", []*entity.Flight{mockFlights[3]}, nil), // F4 (price 1200, dur 120)
 			},
 			input: &entity.SearchRequest{
 				Sort: entity.SearchSort{
@@ -151,10 +144,7 @@ func TestFlightUsecase_Search(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			uc := &FlightUsecaseImpl{
-				providers: tc.providers,
-				cache:     &mockCache{},
-			}
+			uc := usecase.NewFlightUsecase(tc.providers, newMockCache())
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 

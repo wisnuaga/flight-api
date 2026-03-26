@@ -45,9 +45,6 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *entity.SearchReques
 		go func(p port.FlightProvider) {
 			defer wg.Done()
 
-			var flights []*entity.Flight
-			var err error
-
 			// Provider isolation caching check BEFORE executing network request
 			if cachedFlights, ok := u.cache.Get(p.Name(), req); ok {
 				select {
@@ -58,41 +55,9 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *entity.SearchReques
 			}
 
 			// Exponential backoff retry (up to 3 times) for flaky upstream APIs
-		retry_loop:
-			for attempt := 0; attempt < 3; attempt++ {
-				flights, err = p.Search(ctx, req)
-				if err == nil {
-					u.cache.Set(p.Name(), req, flights)
-					break retry_loop
-				}
-				if ctx.Err() != nil {
-					break retry_loop
-				}
-
-				traceID, _ := ctx.Value("trace_id").(string)
-				slog.Warn("provider search failed, retrying",
-					slog.String("trace_id", traceID),
-					slog.String("provider", p.Name()),
-					slog.Int("attempt", attempt+1),
-					slog.String("error", err.Error()),
-				)
-
-				// Backoff
-				backoff := time.Duration(1<<attempt) * 50 * time.Millisecond
-				select {
-				case <-time.After(backoff):
-				case <-ctx.Done():
-					break retry_loop
-				}
-			}
-
-			if err != nil {
-				traceID, _ := ctx.Value("trace_id").(string)
-				slog.Error("flight provider aggregated search completely failed",
-					slog.String("trace_id", traceID),
-					slog.String("provider", p.Name()),
-					slog.String("error", err.Error()),
-				)
+			flights, err := u.retryProviderSearch(ctx, p, req)
+			if err == nil {
+				u.cache.Set(p.Name(), req, flights)
 			}
 
 			select {
@@ -141,7 +106,7 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *entity.SearchReques
 	}
 
 	result := u.buildSearchResult(deduplicated, req, success, failed)
-	result.Meta.CacheHit = (cacheHits > 0)
+	result.Meta.CacheHit = cacheHits > 0
 	result.Meta.SearchTimeMs = int(time.Since(start).Milliseconds())
 
 	return result, nil
@@ -162,4 +127,48 @@ func (u *FlightUsecaseImpl) buildSearchResult(flights []*entity.Flight, req *ent
 			FailedCount:  failed,
 		},
 	}
+}
+
+// retryProviderSearch handles retries with exponential backoff
+func (u *FlightUsecaseImpl) retryProviderSearch(ctx context.Context, p port.FlightProvider, req *entity.SearchRequest) ([]*entity.Flight, error) {
+	var flights []*entity.Flight
+	var err error
+
+	const maxAttempts = 3
+	baseBackoff := 50 * time.Millisecond
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		flights, err = p.Search(ctx, req)
+		if err == nil {
+			return flights, nil
+		}
+
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+
+		traceID, _ := ctx.Value("trace_id").(string)
+		slog.Warn("provider search failed, retrying",
+			slog.String("trace_id", traceID),
+			slog.String("provider", p.Name()),
+			slog.Int("attempt", attempt),
+			slog.String("error", err.Error()),
+		)
+
+		// exponential backoff
+		select {
+		case <-time.After(time.Duration(1<<uint(attempt-1)) * baseBackoff):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+
+	traceID, _ := ctx.Value("trace_id").(string)
+	slog.Error("provider search failed completely",
+		slog.String("trace_id", traceID),
+		slog.String("provider", p.Name()),
+		slog.String("error", err.Error()),
+	)
+
+	return nil, err
 }
