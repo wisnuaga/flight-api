@@ -2,6 +2,7 @@ package batikair
 
 import (
 	"context"
+	"math/rand"
 	"time"
 
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
@@ -21,8 +22,11 @@ func (c *Client) Name() string {
 }
 
 func (c *Client) Search(ctx context.Context, req *entity.SearchRequest) ([]*entity.Flight, error) {
+	// Random delay between 200ms and 400ms
+	delay := time.Duration(200+rand.Intn(201)) * time.Millisecond // rand.Intn(201) -> 0..200
+
 	select {
-	case <-time.After(300 * time.Millisecond):
+	case <-time.After(delay):
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}

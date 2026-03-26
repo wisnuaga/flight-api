@@ -27,9 +27,11 @@ func (c *Client) Search(ctx context.Context, req *entity.SearchRequest) ([]*enti
 		return nil, errors.New("upstream gateway timeout simulated")
 	}
 
-	delayMs := rand.Intn(101) + 50
+	// Random delay between 50ms and 150ms
+	delay := time.Duration(50+rand.Intn(101)) * time.Millisecond // rand.Intn(101) -> 0..101
+
 	select {
-	case <-time.After(time.Duration(delayMs) * time.Millisecond):
+	case <-time.After(delay):
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
