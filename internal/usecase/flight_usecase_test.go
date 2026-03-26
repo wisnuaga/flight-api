@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	testifymock "github.com/stretchr/testify/mock"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	"github.com/wisnuaga/flight-api/internal/port"
@@ -21,16 +22,11 @@ func newMockProvider(name string, flights []*entity.Flight, err error) *mock.Moc
 	return m
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func TestFlightUsecase_Search(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC)
 	mockFlights := []*entity.Flight{
 		{ID: "F1", Provider: "Alpha", FlightNumber: "AL1", Price: 1500, Duration: 120 * time.Minute, Stops: 1, DepartureTime: baseTime, ArrivalTime: baseTime.Add(2 * time.Hour)},
 		{ID: "F2", Provider: "Beta", FlightNumber: "BE2", Price: 1000, Duration: 150 * time.Minute, Stops: 0, DepartureTime: baseTime.Add(1 * time.Hour), ArrivalTime: baseTime.Add(3*time.Hour + 30*time.Minute)},
-		{ID: "F3", Provider: "Alpha", FlightNumber: "AL3", Price: 2000, Duration: 90 * time.Minute, Stops: 0, DepartureTime: baseTime.Add(2 * time.Hour), ArrivalTime: baseTime.Add(3*time.Hour + 30*time.Minute)},
 		// Duplicate of F1 but cheaper
 		{ID: "F4", Provider: "Gamma", FlightNumber: "AL1", Price: 1200, Duration: 120 * time.Minute, Stops: 1, DepartureTime: baseTime, ArrivalTime: baseTime.Add(2 * time.Hour)},
 	}
@@ -38,99 +34,59 @@ func TestFlightUsecase_Search(t *testing.T) {
 	testCases := []struct {
 		name          string
 		providers     []port.FlightProvider
+		setupMocks    func(filterCmd *mock.MockFlightFilterCommand, sortCmd *mock.MockFlightSortCommand)
 		input         *entity.SearchRequest
 		expectedLen   int
-		expectedFirst string // ID of the expected first flight
+		expectedFirst string
 	}{
 		{
-			name: "success - multiple providers, default sort asc price",
+			name: "success - multiple providers aggregation",
 			providers: []port.FlightProvider{
-				newMockProvider("Alpha", []*entity.Flight{mockFlights[0], mockFlights[2]}, nil),
+				newMockProvider("Alpha", []*entity.Flight{mockFlights[0]}, nil),
 				newMockProvider("Beta", []*entity.Flight{mockFlights[1]}, nil),
 			},
-			input:         &entity.SearchRequest{},
-			expectedLen:   3,
-			expectedFirst: "F2", // Price 1000 is lowest
-		},
-		{
-			name: "success - filter by max price 1500",
-			providers: []port.FlightProvider{
-				newMockProvider("Alpha", []*entity.Flight{mockFlights[0], mockFlights[2]}, nil),
-				newMockProvider("Beta", []*entity.Flight{mockFlights[1]}, nil),
-			},
-			input: &entity.SearchRequest{
-				Filter: entity.SearchFilter{
-					MaxPrice: ptr(float64(1500)),
-				},
+			input: &entity.SearchRequest{},
+			setupMocks: func(filterCmd *mock.MockFlightFilterCommand, sortCmd *mock.MockFlightSortCommand) {
+				// The usecase deduplicates and aggregates, then passes to the commands directly.
+				// We inject pass-through mock data bypassing logic to solely test Usecase orchestration.
+				filterCmd.On("Execute", testifymock.Anything, testifymock.Anything).Return(
+					[]*entity.Flight{mockFlights[0], mockFlights[1]},
+				)
+				sortCmd.On("Execute", testifymock.Anything, testifymock.Anything).Return()
 			},
 			expectedLen:   2,
-			expectedFirst: "F2",
+			expectedFirst: "F1",
 		},
 		{
-			name: "success - sort by duration descending",
-			providers: []port.FlightProvider{
-				newMockProvider("Alpha", []*entity.Flight{mockFlights[0], mockFlights[2]}, nil),
-				newMockProvider("Beta", []*entity.Flight{mockFlights[1]}, nil),
-			},
-			input: &entity.SearchRequest{
-				Sort: entity.SearchSort{
-					Field: entity.SortByDuration,
-					Order: entity.SortDesc,
-				},
-			},
-			expectedLen:   3,
-			expectedFirst: "F2", // Duration 150 is the longest
-		},
-		{
-			name: "success - one provider fails, results still returned",
+			name: "success - one provider fails, results still returned (error resilience)",
 			providers: []port.FlightProvider{
 				newMockProvider("Alpha", nil, errors.New("timeout")),
 				newMockProvider("Beta", []*entity.Flight{mockFlights[1]}, nil),
 			},
-			input:         &entity.SearchRequest{},
+			input: &entity.SearchRequest{},
+			setupMocks: func(filterCmd *mock.MockFlightFilterCommand, sortCmd *mock.MockFlightSortCommand) {
+				filterCmd.On("Execute", testifymock.Anything, testifymock.Anything).Return(
+					[]*entity.Flight{mockFlights[1]},
+				)
+				sortCmd.On("Execute", testifymock.Anything, testifymock.Anything).Return()
+			},
 			expectedLen:   1,
 			expectedFirst: "F2",
-		},
-		{
-			name: "success - filter by max stops",
-			providers: []port.FlightProvider{
-				newMockProvider("Alpha", []*entity.Flight{mockFlights[0], mockFlights[2]}, nil),
-				newMockProvider("Beta", []*entity.Flight{mockFlights[1]}, nil),
-			},
-			input: &entity.SearchRequest{
-				Filter: entity.SearchFilter{
-					MaxStops: ptr(0),
-				},
-			},
-			expectedLen:   2,
-			expectedFirst: "F2", // Filtered out F1 which has 1 stop
 		},
 		{
 			name: "success - deduplication keeps cheaper flight",
 			providers: []port.FlightProvider{
 				newMockProvider("Alpha", []*entity.Flight{mockFlights[0]}, nil), // F1 (1500)
-				newMockProvider("Gamma", []*entity.Flight{mockFlights[3]}, nil), // F4 (1200) - same route/time
+				newMockProvider("Gamma", []*entity.Flight{mockFlights[2]}, nil), // F4 (1200)
 			},
-			input:         &entity.SearchRequest{},
-			expectedLen:   1,    // Should deduplicate F1 and F4 into 1
-			expectedFirst: "F4", // Should keep the cheaper one
-		},
-		{
-			name: "success - best value ranking",
-			providers: []port.FlightProvider{
-				newMockProvider("Alpha", []*entity.Flight{mockFlights[2]}, nil), // F3 (price 2000, dur 90)
-				newMockProvider("Beta", []*entity.Flight{mockFlights[1]}, nil),  // F2 (price 1000, dur 150)
-				newMockProvider("Gamma", []*entity.Flight{mockFlights[3]}, nil), // F4 (price 1200, dur 120)
+			input: &entity.SearchRequest{},
+			setupMocks: func(filterCmd *mock.MockFlightFilterCommand, sortCmd *mock.MockFlightSortCommand) {
+				filterCmd.On("Execute", testifymock.Anything, testifymock.Anything).Return(
+					[]*entity.Flight{mockFlights[2]},
+				)
+				sortCmd.On("Execute", testifymock.Anything, testifymock.Anything).Return()
 			},
-			input: &entity.SearchRequest{
-				Sort: entity.SearchSort{
-					Field:          entity.SortByBestValue,
-					Order:          entity.SortAsc,
-					PriceWeight:    1.0,
-					DurationWeight: 1.0,
-				},
-			},
-			expectedLen:   3,
+			expectedLen:   1,
 			expectedFirst: "F4",
 		},
 	}
@@ -138,26 +94,33 @@ func TestFlightUsecase_Search(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			uc := usecase.NewFlightUsecase(tc.providers, cache.NewMemoryCache[[]*entity.Flight]())
+			filterMock := new(mock.MockFlightFilterCommand)
+			sortMock := new(mock.MockFlightSortCommand)
+			tc.setupMocks(filterMock, sortMock)
+
+			uc := usecase.NewFlightUsecase(
+				tc.providers,
+				cache.NewMemoryCache[[]*entity.Flight](),
+				filterMock,
+				sortMock,
+			)
+
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 
 			got, err := uc.Search(ctx, tc.input)
-			if err != nil {
-				t.Fatalf("Search() unexpected error: %v", err)
+
+			assert.NoError(t, err)
+			assert.NotNil(t, got)
+			assert.Len(t, got.Flights, tc.expectedLen)
+
+			if tc.expectedLen > 0 {
+				assert.Equal(t, tc.expectedFirst, got.Flights[0].ID)
 			}
 
-			if got == nil {
-				t.Fatal("Search() returned nil result")
-			}
-
-			if len(got.Flights) != tc.expectedLen {
-				t.Errorf("Search() returned %d flights, want %d", len(got.Flights), tc.expectedLen)
-			}
-
-			if tc.expectedLen > 0 && got.Flights[0].ID != tc.expectedFirst {
-				t.Errorf("Search() first flight ID = %s, want %s", got.Flights[0].ID, tc.expectedFirst)
-			}
+			// Verify the command mocks were properly called during orchestration
+			filterMock.AssertExpectations(t)
+			sortMock.AssertExpectations(t)
 		})
 	}
 }

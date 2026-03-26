@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wisnuaga/flight-api/internal/domain"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	"github.com/wisnuaga/flight-api/internal/port"
 	"github.com/wisnuaga/flight-api/pkg/cache"
@@ -23,12 +22,21 @@ type searchResult struct {
 type FlightUsecaseImpl struct {
 	providers []port.FlightProvider
 	cache     cache.Cache[[]*entity.Flight]
+	filterCmd port.FlightFilterCommand
+	sortCmd   port.FlightSortCommand
 }
 
-func NewFlightUsecase(providers []port.FlightProvider, c cache.Cache[[]*entity.Flight]) *FlightUsecaseImpl {
+func NewFlightUsecase(
+	providers []port.FlightProvider,
+	c cache.Cache[[]*entity.Flight],
+	filterCmd port.FlightFilterCommand,
+	sortCmd port.FlightSortCommand,
+) *FlightUsecaseImpl {
 	return &FlightUsecaseImpl{
 		providers: providers,
 		cache:     c,
+		filterCmd: filterCmd,
+		sortCmd:   sortCmd,
 	}
 }
 
@@ -128,10 +136,8 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *entity.SearchReques
 }
 
 func (u *FlightUsecaseImpl) buildSearchResult(flights []*entity.Flight, req *entity.SearchRequest, success, failed int) *entity.SearchResult {
-	predicates := domain.BuildFilterPredicates(&req.Filter)
-	flights = domain.ApplyFilters(flights, predicates)
-
-	domain.ApplySorting(flights, req.Sort)
+	flights = u.filterCmd.Execute(flights, &req.Filter)
+	u.sortCmd.Execute(flights, req.Sort)
 
 	return &entity.SearchResult{
 		Flights: flights,

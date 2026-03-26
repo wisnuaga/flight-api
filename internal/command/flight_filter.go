@@ -1,15 +1,21 @@
-package domain
+package command
 
 import (
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
+	"github.com/wisnuaga/flight-api/internal/port"
 )
 
-// FilterPredicate is a function that returns true if a flight passes the filter.
-type FilterPredicate func(*entity.Flight) bool
+type flightFilterCommandImpl struct{}
 
-// BuildFilterPredicates builds a list of filter predicates from the given SearchFilter.
-func BuildFilterPredicates(filter *entity.SearchFilter) []FilterPredicate {
-	var predicates []FilterPredicate
+// NewFlightFilterCommand creates a new FlightFilterCommand instance.
+func NewFlightFilterCommand() port.FlightFilterCommand {
+	return &flightFilterCommandImpl{}
+}
+
+type filterPredicate func(*entity.Flight) bool
+
+func (c *flightFilterCommandImpl) buildPredicates(filter *entity.SearchFilter) []filterPredicate {
+	var predicates []filterPredicate
 
 	if filter == nil {
 		return predicates
@@ -82,8 +88,9 @@ func BuildFilterPredicates(filter *entity.SearchFilter) []FilterPredicate {
 	return predicates
 }
 
-// ApplyFilters filters flights in-place using the given predicates.
-func ApplyFilters(flights []*entity.Flight, predicates []FilterPredicate) []*entity.Flight {
+// Execute filters flights in-place using the given filter parameters.
+func (c *flightFilterCommandImpl) Execute(flights []*entity.Flight, filter *entity.SearchFilter) []*entity.Flight {
+	predicates := c.buildPredicates(filter)
 	if len(predicates) == 0 {
 		return flights
 	}

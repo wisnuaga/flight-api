@@ -1,13 +1,21 @@
-package domain
+package command
 
 import (
 	"sort"
 
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
+	"github.com/wisnuaga/flight-api/internal/port"
 )
 
-// ApplySorting sorts flights in-place according to sortParam.
-func ApplySorting(flights []*entity.Flight, sortParam entity.SearchSort) {
+type flightSortCommandImpl struct{}
+
+// NewFlightSortCommand creates a new FlightSortCommand instance.
+func NewFlightSortCommand() port.FlightSortCommand {
+	return &flightSortCommandImpl{}
+}
+
+// Execute sorts flights in-place according to sortParam.
+func (c *flightSortCommandImpl) Execute(flights []*entity.Flight, sortParam entity.SearchSort) {
 	field := sortParam.Field
 	if field == "" {
 		field = entity.SortByPrice
@@ -69,8 +77,8 @@ func ApplySorting(flights []*entity.Flight, sortParam entity.SearchSort) {
 		case entity.SortByArrival:
 			isLess = f1.ArrivalTime.Before(f2.ArrivalTime)
 		case entity.SortByBestValue:
-			score1 := calculateBestValueScore(f1, minPrice, maxPrice, minDuration, maxDuration, priceWeight, durationWeight)
-			score2 := calculateBestValueScore(f2, minPrice, maxPrice, minDuration, maxDuration, priceWeight, durationWeight)
+			score1 := c.calculateBestValueScore(f1, minPrice, maxPrice, minDuration, maxDuration, priceWeight, durationWeight)
+			score2 := c.calculateBestValueScore(f2, minPrice, maxPrice, minDuration, maxDuration, priceWeight, durationWeight)
 			isLess = score1 < score2
 		default:
 			isLess = f1.Price < f2.Price
@@ -84,7 +92,7 @@ func ApplySorting(flights []*entity.Flight, sortParam entity.SearchSort) {
 }
 
 // calculateBestValueScore returns a normalised 0-1 score for a flight (lower = better value).
-func calculateBestValueScore(f *entity.Flight, minPrice, maxPrice float64, minDur, maxDur int64, weightPrice, weightDur float64) float64 {
+func (c *flightSortCommandImpl) calculateBestValueScore(f *entity.Flight, minPrice, maxPrice float64, minDur, maxDur int64, weightPrice, weightDur float64) float64 {
 	priceRange := maxPrice - minPrice
 	durRange := float64(maxDur - minDur)
 

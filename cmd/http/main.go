@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/wisnuaga/flight-api/internal/command"
 	"github.com/wisnuaga/flight-api/internal/config"
 	"github.com/wisnuaga/flight-api/internal/delivery/http/router"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
@@ -20,8 +21,12 @@ func main() {
 	flightCache := cache.NewMemoryCache[[]*entity.Flight]()
 	registry := infraprovider.NewRegistry(cfg)
 
+	// Build application commands
+	filterCmd := command.NewFlightFilterCommand()
+	sortCmd := command.NewFlightSortCommand()
+
 	// Build usecase with injected dependencies
-	flightUsecase := usecase.NewFlightUsecase(registry.GetProviders(), flightCache)
+	flightUsecase := usecase.NewFlightUsecase(registry.GetProviders(), flightCache, filterCmd, sortCmd)
 
 	// Setup HTTP router (pure routing, no DI logic)
 	r := router.Setup(flightUsecase)
