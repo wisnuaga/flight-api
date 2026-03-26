@@ -3,13 +3,13 @@ package main
 import (
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/wisnuaga/flight-api/internal/config"
 	"github.com/wisnuaga/flight-api/internal/delivery/http/router"
-	"github.com/wisnuaga/flight-api/internal/infra/cache"
+	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	infraprovider "github.com/wisnuaga/flight-api/internal/infra/provider"
 	"github.com/wisnuaga/flight-api/internal/usecase"
+	"github.com/wisnuaga/flight-api/pkg/cache"
 )
 
 func main() {
@@ -17,7 +17,7 @@ func main() {
 	cfg := config.LoadConfig()
 
 	// Build infrastructure
-	flightCache := cache.NewMemoryCache(5 * time.Minute)
+	flightCache := cache.NewMemoryCache[[]*entity.Flight]()
 	registry := infraprovider.NewRegistry(cfg)
 
 	// Build usecase with injected dependencies

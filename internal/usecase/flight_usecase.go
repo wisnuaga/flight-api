@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -10,6 +11,7 @@ import (
 	"github.com/wisnuaga/flight-api/internal/domain"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	"github.com/wisnuaga/flight-api/internal/port"
+	"github.com/wisnuaga/flight-api/pkg/cache"
 )
 
 type searchResult struct {
@@ -20,14 +22,25 @@ type searchResult struct {
 
 type FlightUsecaseImpl struct {
 	providers []port.FlightProvider
-	cache     port.FlightCache
+	cache     cache.Cache[[]*entity.Flight]
 }
 
-func NewFlightUsecase(providers []port.FlightProvider, cache port.FlightCache) *FlightUsecaseImpl {
+func NewFlightUsecase(providers []port.FlightProvider, c cache.Cache[[]*entity.Flight]) *FlightUsecaseImpl {
 	return &FlightUsecaseImpl{
 		providers: providers,
-		cache:     cache,
+		cache:     c,
 	}
+}
+
+func GenerateFlightSearchKey(provider string, req *entity.SearchRequest) string {
+	raw := fmt.Sprintf("%s_%s_%s_%s_%d",
+		provider,
+		req.Origin,
+		req.Destination,
+		req.DepartureDate.Format("2006-01-02"),
+		req.Passengers)
+	hash := sha256.Sum256([]byte(raw))
+	return fmt.Sprintf("flight:search:v1:%x", hash)
 }
 
 func (u *FlightUsecaseImpl) Search(ctx context.Context, req *entity.SearchRequest) (*entity.SearchResult, error) {
@@ -45,8 +58,10 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *entity.SearchReques
 		go func(p port.FlightProvider) {
 			defer wg.Done()
 
+			cacheKey := GenerateFlightSearchKey(p.Name(), req)
+
 			// Provider isolation caching check BEFORE executing network request
-			if cachedFlights, ok := u.cache.Get(p.Name(), req); ok {
+			if cachedFlights, ok, err := u.cache.Get(ctx, cacheKey); err == nil && ok {
 				select {
 				case <-ctx.Done():
 				case resultCh <- &searchResult{flights: cachedFlights, err: nil, cacheHit: true}:
@@ -57,7 +72,7 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *entity.SearchReques
 			// Exponential backoff retry (up to 3 times) for flaky upstream APIs
 			flights, err := u.retryProviderSearch(ctx, p, req)
 			if err == nil {
-				u.cache.Set(p.Name(), req, flights)
+				_ = u.cache.Set(ctx, cacheKey, flights, 5*time.Minute)
 			}
 
 			select {

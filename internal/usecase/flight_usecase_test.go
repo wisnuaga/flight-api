@@ -10,6 +10,7 @@ import (
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	"github.com/wisnuaga/flight-api/internal/port"
 	"github.com/wisnuaga/flight-api/internal/usecase"
+	"github.com/wisnuaga/flight-api/pkg/cache"
 	"github.com/wisnuaga/flight-api/tests/mock"
 )
 
@@ -17,13 +18,6 @@ func newMockProvider(name string, flights []*entity.Flight, err error) *mock.Moc
 	m := new(mock.MockFlightProvider)
 	m.On("Name").Return(name)
 	m.On("Search", testifymock.Anything, testifymock.Anything).Return(flights, err)
-	return m
-}
-
-func newMockCache() *mock.MockFlightCache {
-	m := new(mock.MockFlightCache)
-	m.On("Get", testifymock.Anything, testifymock.Anything).Return(nil, false)
-	m.On("Set", testifymock.Anything, testifymock.Anything, testifymock.Anything).Return()
 	return m
 }
 
@@ -144,7 +138,7 @@ func TestFlightUsecase_Search(t *testing.T) {
 	for _, tc := range testCases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			uc := usecase.NewFlightUsecase(tc.providers, newMockCache())
+			uc := usecase.NewFlightUsecase(tc.providers, cache.NewMemoryCache[[]*entity.Flight]())
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 
