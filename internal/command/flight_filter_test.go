@@ -21,19 +21,19 @@ func TestFlightFilterCommand_Execute(t *testing.T) {
 
 	flights := []*entity.Flight{
 		{
-			ID: "1", Price: decimal.NewFromInt(1000), Stops: 0, Provider: "Garuda", CabinClass: "economy",
+			ID: "1", Price: decimal.NewFromInt(1000), Stops: 0, Airline: entity.AirlineGaruda, CabinClass: "economy",
 			Origin:      entity.Location{Airport: "CGK", Time: baseTime},
 			Destination: entity.Location{Airport: "DPS", Time: baseTime.Add(2 * time.Hour)},
 			Duration:    120 * time.Minute,
 		},
 		{
-			ID: "2", Price: decimal.NewFromInt(2000), Stops: 1, Provider: "LionAir", CabinClass: "business",
+			ID: "2", Price: decimal.NewFromInt(2000), Stops: 1, Airline: entity.AirlineLionAir, CabinClass: "business",
 			Origin:      entity.Location{Airport: "CGK", Time: baseTime.Add(1 * time.Hour)},
 			Destination: entity.Location{Airport: "DPS", Time: baseTime.Add(4 * time.Hour)},
 			Duration:    180 * time.Minute,
 		},
 		{
-			ID: "3", Price: decimal.NewFromInt(1500), Stops: 0, Provider: "AirAsia", CabinClass: "economy",
+			ID: "3", Price: decimal.NewFromInt(1500), Stops: 0, Airline: entity.AirlineAirAsia, CabinClass: "economy",
 			Origin:      entity.Location{Airport: "CGK", Time: baseTime.Add(2 * time.Hour)},
 			Destination: entity.Location{Airport: "DPS", Time: baseTime.Add(5 * time.Hour)},
 			Duration:    180 * time.Minute,
@@ -58,8 +58,8 @@ func TestFlightFilterCommand_Execute(t *testing.T) {
 		assert.Equal(t, "3", res[1].ID)
 	})
 
-	t.Run("filter by multiple providers", func(t *testing.T) {
-		f := &entity.SearchFilter{AirlineCodes: []string{"Garuda", "LionAir"}}
+	t.Run("filter by multiple airlines", func(t *testing.T) {
+		f := &entity.SearchFilter{Airlines: []entity.AirlineName{entity.AirlineGaruda, entity.AirlineLionAir}}
 		copied := append([]*entity.Flight(nil), flights...)
 		res := cmd.Execute(copied, f)
 		assert.Len(t, res, 2)

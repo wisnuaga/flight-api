@@ -35,7 +35,7 @@ Search for available flights across all configured providers. Supports both one-
 | `departure_end` | string | No | Latest departure time (RFC3339 or `YYYY-MM-DD HH:MM`) |
 | `arrival_start` | string | No | Earliest arrival time |
 | `arrival_end` | string | No | Latest arrival time |
-| `airline_codes` | array of strings | No | Filter by IATA code (e.g. `"GA"`) **or** provider name (e.g. `"Garuda Indonesia"`) |
+| `airlines` | array of strings | No | Filter by airline name: `"Garuda Indonesia"` \| `"Lion Air"` \| `"AirAsia"` \| `"Batik Air"` |
 | `max_duration` | integer | No | Maximum flight duration in **minutes** |
 | `sort_by` | string | No | Sort field: `price` \| `duration` \| `departure_time` \| `arrival_time` \| `best_value` (default: `price`) |
 | `sort_order` | string | No | Sort direction: `asc` \| `desc` (default: `asc`) |
@@ -354,7 +354,7 @@ curl -s -X POST http://localhost:8080/flights/search \
 }
 ```
 
-### Filter by airline IATA code
+### Filter by airline name
 
 ```bash
 curl -s -X POST http://localhost:8080/flights/search \
@@ -363,7 +363,7 @@ curl -s -X POST http://localhost:8080/flights/search \
     "origin": "CGK",
     "destination": "DPS",
     "departure_date": "2025-12-15",
-    "airline_codes": ["GA", "QZ"],
+    "airlines": ["Garuda Indonesia", "AirAsia"],
     "sort_by": "best_value"
   }'
 ```

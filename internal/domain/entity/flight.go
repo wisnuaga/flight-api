@@ -9,9 +9,9 @@ import (
 type Flight struct {
 	// Basic info
 	ID           string
-	Provider     string
+	Airline      AirlineName // The airline/provider name (e.g., "Garuda Indonesia")
 	FlightNumber string
-	AirlineCode  string
+	AirlineCode  string // IATA airline code (e.g., "GA" for Garuda)
 
 	// Route with timezone-aware locations
 	Origin      Location

@@ -44,7 +44,7 @@ func TestClient_Search(t *testing.T) {
 			checkFirstFlight: true,
 			expectedFirst: &entity.Flight{
 				ID:           "QZ520_AirAsia",
-				Provider:     "AirAsia",
+				Airline:      entity.AirlineAirAsia,
 				FlightNumber: "QZ520",
 				AirlineCode:  "QZ",
 				Origin: entity.Location{
@@ -129,7 +129,7 @@ func assertFlight(t *testing.T, got, want *entity.Flight) {
 		got, exp interface{}
 	}{
 		{"ID", got.ID, want.ID},
-		{"Provider", got.Provider, want.Provider},
+		{"Airline", got.Airline, want.Airline},
 		{"FlightNumber", got.FlightNumber, want.FlightNumber},
 		{"Origin.Airport", got.Origin.Airport, want.Origin.Airport},
 		{"Destination.Airport", got.Destination.Airport, want.Destination.Airport},

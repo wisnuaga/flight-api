@@ -50,7 +50,7 @@ func mapToDomain(resp SearchResponse) []*entity.Flight {
 
 		flight := entity.Flight{
 			ID:           fmt.Sprintf("%s_%s", f.FlightID, util.NormalizeAirlineName(f.Airline)),
-			Provider:     f.Airline,
+			Airline:      entity.AirlineGaruda,
 			FlightNumber: f.FlightID,
 			AirlineCode:  f.AirlineCode,
 			Origin: entity.Location{

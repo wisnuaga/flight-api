@@ -43,7 +43,7 @@ func mapToDomain(resp SearchResponse, req *entity.SearchRequest) []*entity.Fligh
 
 		flight := entity.Flight{
 			ID:           fmt.Sprintf("%s_%s", f.ID, util.NormalizeAirlineName(f.Carrier.Name)),
-			Provider:     f.Carrier.Name,
+			Airline:      entity.AirlineLionAir,
 			FlightNumber: f.ID,
 			AirlineCode:  f.Carrier.IATA,
 			Origin: entity.Location{

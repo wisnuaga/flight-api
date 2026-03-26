@@ -30,7 +30,7 @@ func TestRoundTripCombiner_Combine(t *testing.T) {
 	outbound := &entity.Flight{
 		ID:             "out1",
 		FlightNumber:   "GA101",
-		Provider:       "Garuda",
+		Airline:        entity.AirlineGaruda,
 		AirlineCode:    "GA",
 		Stops:          0,
 		Price:          decimal.NewFromInt(1500000),
@@ -55,7 +55,7 @@ func TestRoundTripCombiner_Combine(t *testing.T) {
 	returnFlight := &entity.Flight{
 		ID:             "ret1",
 		FlightNumber:   "GA102",
-		Provider:       "Garuda",
+		Airline:        entity.AirlineGaruda,
 		AirlineCode:    "GA",
 		Stops:          0,
 		Price:          decimal.NewFromInt(1500000),
@@ -104,7 +104,7 @@ func TestRoundTripCombiner_Combine_TooShortLayover(t *testing.T) {
 	outbound := &entity.Flight{
 		ID:             "out1",
 		FlightNumber:   "GA101",
-		Provider:       "Garuda",
+		Airline:        entity.AirlineGaruda,
 		AirlineCode:    "GA",
 		Stops:          0,
 		Price:          decimal.NewFromInt(1500000),
@@ -129,7 +129,7 @@ func TestRoundTripCombiner_Combine_TooShortLayover(t *testing.T) {
 	returnFlight := &entity.Flight{
 		ID:             "ret1",
 		FlightNumber:   "GA102",
-		Provider:       "Garuda",
+		Airline:        entity.AirlineGaruda,
 		AirlineCode:    "GA",
 		Stops:          0,
 		Price:          decimal.NewFromInt(1500000),

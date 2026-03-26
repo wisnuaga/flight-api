@@ -22,6 +22,19 @@ func parseOptionalTime(t *string) *time.Time {
 	return &utc
 }
 
+func convertAirlineNames(airlineStrs []string) []entity.AirlineName {
+	if len(airlineStrs) == 0 {
+		return nil
+	}
+	airlines := make([]entity.AirlineName, 0, len(airlineStrs))
+	for _, s := range airlineStrs {
+		if airline := entity.AirlineNameFromString(s); airline != "" {
+			airlines = append(airlines, airline)
+		}
+	}
+	return airlines
+}
+
 func (r *SearchRequest) ToDomain() (entity.SearchRequest, error) {
 	departureTime, err := time.Parse("2006-01-02", r.DepartureDate)
 	if err != nil {
@@ -63,7 +76,7 @@ func (r *SearchRequest) ToDomain() (entity.SearchRequest, error) {
 			ArrivalStart:   parseOptionalTime(r.ArrivalStart),
 			ArrivalEnd:     parseOptionalTime(r.ArrivalEnd),
 			MaxDuration:    maxDuration,
-			AirlineCodes:   r.AirlineCodes,
+			Airlines:       convertAirlineNames(r.Airlines),
 			CabinClass:     cabinClass,
 		},
 		Sort: entity.SearchSort{
@@ -87,9 +100,9 @@ func ToSearchResponse(req *SearchRequest, result *entity.SearchResult) SearchRes
 
 			flights = append(flights, Flight{
 				ID:       f.ID,
-				Provider: f.Provider,
+				Provider: f.Airline.String(),
 				Airline: Airline{
-					Name: f.Provider,
+					Name: f.Airline.String(),
 					Code: f.AirlineCode,
 				},
 				FlightNumber: f.FlightNumber,
@@ -182,9 +195,9 @@ func ToRoundTripResponseWithMeta(req *SearchRequest, itineraries []*entity.Round
 
 		outboundFlight := Flight{
 			ID:       itinerary.OutboundFlight.ID,
-			Provider: itinerary.OutboundFlight.Provider,
+			Provider: itinerary.OutboundFlight.Airline.String(),
 			Airline: Airline{
-				Name: itinerary.OutboundFlight.Provider,
+				Name: itinerary.OutboundFlight.Airline.String(),
 				Code: itinerary.OutboundFlight.AirlineCode,
 			},
 			FlightNumber: itinerary.OutboundFlight.FlightNumber,
@@ -211,9 +224,9 @@ func ToRoundTripResponseWithMeta(req *SearchRequest, itineraries []*entity.Round
 
 		returnFlight := Flight{
 			ID:       itinerary.ReturnFlight.ID,
-			Provider: itinerary.ReturnFlight.Provider,
+			Provider: itinerary.ReturnFlight.Airline.String(),
 			Airline: Airline{
-				Name: itinerary.ReturnFlight.Provider,
+				Name: itinerary.ReturnFlight.Airline.String(),
 				Code: itinerary.ReturnFlight.AirlineCode,
 			},
 			FlightNumber: itinerary.ReturnFlight.FlightNumber,

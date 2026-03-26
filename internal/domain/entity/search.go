@@ -32,8 +32,8 @@ type SearchFilter struct {
 	ArrivalEnd     *time.Time
 	MaxDuration    *time.Duration
 
-	// Airline filters
-	AirlineCodes []string
+	// Airline filters (by airline name, not code)
+	Airlines []AirlineName
 
 	// Cabin class filters
 	CabinClass *string

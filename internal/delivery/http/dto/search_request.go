@@ -18,7 +18,7 @@ type SearchRequest struct {
 	DepartureEnd   *string          `json:"departure_end"`
 	ArrivalStart   *string          `json:"arrival_start"`
 	ArrivalEnd     *string          `json:"arrival_end"`
-	AirlineCodes   []string         `json:"airline_codes"`
+	Airlines       []string         `json:"airlines"`     // Airline names: "Garuda Indonesia", "Lion Air", "AirAsia", "Batik Air"
 	MaxDuration    *int             `json:"max_duration"` // Minutes
 
 	// Sort
