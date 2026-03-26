@@ -23,6 +23,7 @@ func (c *Client) Name() string {
 }
 
 func (c *Client) Search(ctx context.Context, req *entity.SearchRequest) ([]*entity.Flight, error) {
+	// 10% failure rate
 	if rand.Float32() < 0.10 {
 		return nil, errors.New("upstream gateway timeout simulated")
 	}
