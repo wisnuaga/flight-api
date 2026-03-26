@@ -9,12 +9,14 @@ import (
 func mapToDomain(resp AirAsiaResponse, req *entity.SearchRequest) []*entity.Flight {
 	var flights []*entity.Flight
 	for _, f := range resp.Flights {
-		depTimeUTC, err := util.ParseTimeWithOptionalTZ(f.DepartTime, "")
+		// AirAsia embeds the UTC offset in the time string (e.g. "2025-12-15T04:45:00+07:00").
+		// Extract the instant (UTC) and fixed-offset location from the string itself.
+		depTimeUTC, depTz, err := util.ParseTimeFromString(f.DepartTime)
 		if err != nil {
 			continue
 		}
 
-		arrTimeUTC, err := util.ParseTimeWithOptionalTZ(f.ArriveTime, "")
+		arrTimeUTC, arrTz, err := util.ParseTimeFromString(f.ArriveTime)
 		if err != nil {
 			continue
 		}
@@ -26,20 +28,20 @@ func mapToDomain(resp AirAsiaResponse, req *entity.SearchRequest) []*entity.Flig
 			continue
 		}
 
-		// Map to domain Flight with timezone-aware locations
 		flight := entity.Flight{
 			ID:           f.FlightCode,
 			Provider:     "AirAsia",
 			FlightNumber: f.FlightCode,
+			AirlineCode:  getFlightCodePrefix(f.FlightCode),
 			Origin: entity.Location{
 				Airport:  f.FromAirport,
-				Time:     depTimeUTC,
-				Timezone: depTimeUTC.Location(),
+				Time:     depTimeUTC, // UTC for internal filtering/sorting
+				Timezone: depTz,      // Fixed-offset location extracted from the time string
 			},
 			Destination: entity.Location{
 				Airport:  f.ToAirport,
-				Time:     arrTimeUTC,
-				Timezone: arrTimeUTC.Location(),
+				Time:     arrTimeUTC, // UTC for internal filtering/sorting
+				Timezone: arrTz,      // Fixed-offset location extracted from the time string
 			},
 			Price:          decimal.NewFromFloat(f.PriceIDR),
 			Currency:       "IDR",
@@ -47,10 +49,8 @@ func mapToDomain(resp AirAsiaResponse, req *entity.SearchRequest) []*entity.Flig
 			AvailableSeats: f.Seats,
 		}
 
-		// Normalize: ensure UTC times, set defaults, compute duration
 		flight = entity.NormalizeFlight(flight)
 
-		// Validate flight data
 		if !entity.IsValidFlight(flight) {
 			continue
 		}

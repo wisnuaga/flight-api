@@ -76,7 +76,7 @@ func ToSearchResponse(req *SearchRequest, result *entity.SearchResult) SearchRes
 				Provider: f.Provider,
 				Airline: Airline{
 					Name: f.Provider,
-					Code: f.Provider,
+					Code: f.AirlineCode,
 				},
 				FlightNumber: f.FlightNumber,
 				Departure:    departure,

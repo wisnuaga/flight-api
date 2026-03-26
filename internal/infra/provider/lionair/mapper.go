@@ -10,14 +10,15 @@ import (
 func mapToDomain(resp LionResponse, req *entity.SearchRequest) []*entity.Flight {
 	var flights []*entity.Flight
 	for _, f := range resp.Data.AvailableFlights {
-		// Parse departure time with timezone info (Lion Air provides timezone data)
-		depTimeUTC, err := util.ParseTimeWithOptionalTZ(f.Schedule.Departure, f.Schedule.DepartureTimezone)
+		// Lion Air is the only provider that supplies separate IANA timezone names
+		// (departure_timezone / arrival_timezone fields). Use ParseTimeWithTZInfo to
+		// parse the naive datetime string in that named timezone and preserve it.
+		depTimeUTC, depTz, err := util.ParseTimeWithTZInfo(f.Schedule.Departure, f.Schedule.DepartureTimezone)
 		if err != nil {
 			continue
 		}
 
-		// Parse arrival time with timezone info
-		arrTimeUTC, err := util.ParseTimeWithOptionalTZ(f.Schedule.Arrival, f.Schedule.ArrivalTimezone)
+		arrTimeUTC, arrTz, err := util.ParseTimeWithTZInfo(f.Schedule.Arrival, f.Schedule.ArrivalTimezone)
 		if err != nil {
 			continue
 		}
@@ -29,20 +30,20 @@ func mapToDomain(resp LionResponse, req *entity.SearchRequest) []*entity.Flight 
 			continue
 		}
 
-		// Map to domain Flight with timezone-aware locations
 		flight := entity.Flight{
 			ID:           f.ID,
 			Provider:     "Lion Air",
 			FlightNumber: f.ID,
+			AirlineCode:  f.Carrier.IATA,
 			Origin: entity.Location{
 				Airport:  f.Route.From.Code,
-				Time:     depTimeUTC,
-				Timezone: depTimeUTC.Location(),
+				Time:     depTimeUTC, // UTC for internal filtering/sorting
+				Timezone: depTz,      // Named IANA location from the provider
 			},
 			Destination: entity.Location{
 				Airport:  f.Route.To.Code,
-				Time:     arrTimeUTC,
-				Timezone: arrTimeUTC.Location(),
+				Time:     arrTimeUTC, // UTC for internal filtering/sorting
+				Timezone: arrTz,      // Named IANA location from the provider
 			},
 			Price:          decimal.NewFromFloat(f.Pricing.Total),
 			Currency:       f.Pricing.Currency,
@@ -50,10 +51,8 @@ func mapToDomain(resp LionResponse, req *entity.SearchRequest) []*entity.Flight 
 			AvailableSeats: f.SeatsLeft,
 		}
 
-		// Normalize: ensure UTC times, set defaults, compute duration
 		flight = entity.NormalizeFlight(flight)
 
-		// Validate flight data
 		if !entity.IsValidFlight(flight) {
 			continue
 		}

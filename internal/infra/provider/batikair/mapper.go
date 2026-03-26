@@ -9,12 +9,14 @@ import (
 func mapToDomain(resp BatikResponse, req *entity.SearchRequest) []*entity.Flight {
 	var flights []*entity.Flight
 	for _, f := range resp.Results {
-		depTimeUTC, err := util.ParseTimeWithOptionalTZ(f.DepartureDateTime, "")
+		// Batik Air embeds the UTC offset in the time string (e.g. "2025-12-15T07:15:00+0700").
+		// Extract the instant (UTC) and fixed-offset location from the string itself.
+		depTimeUTC, depTz, err := util.ParseTimeFromString(f.DepartureDateTime)
 		if err != nil {
 			continue
 		}
 
-		arrTimeUTC, err := util.ParseTimeWithOptionalTZ(f.ArrivalDateTime, "")
+		arrTimeUTC, arrTz, err := util.ParseTimeFromString(f.ArrivalDateTime)
 		if err != nil {
 			continue
 		}
@@ -26,20 +28,20 @@ func mapToDomain(resp BatikResponse, req *entity.SearchRequest) []*entity.Flight
 			continue
 		}
 
-		// Map to domain Flight with timezone-aware locations
 		flight := entity.Flight{
 			ID:           f.FlightNumber,
 			Provider:     "Batik Air",
 			FlightNumber: f.FlightNumber,
+			AirlineCode:  f.AirlineIATA,
 			Origin: entity.Location{
 				Airport:  f.Origin,
-				Time:     depTimeUTC,
-				Timezone: depTimeUTC.Location(),
+				Time:     depTimeUTC, // UTC for internal filtering/sorting
+				Timezone: depTz,      // Fixed-offset location extracted from the time string
 			},
 			Destination: entity.Location{
 				Airport:  f.Destination,
-				Time:     arrTimeUTC,
-				Timezone: arrTimeUTC.Location(),
+				Time:     arrTimeUTC, // UTC for internal filtering/sorting
+				Timezone: arrTz,      // Fixed-offset location extracted from the time string
 			},
 			Price:          decimal.NewFromFloat(f.Fare.TotalPrice),
 			Currency:       f.Fare.CurrencyCode,
@@ -47,10 +49,8 @@ func mapToDomain(resp BatikResponse, req *entity.SearchRequest) []*entity.Flight
 			AvailableSeats: f.SeatsAvailable,
 		}
 
-		// Normalize: ensure UTC times, set defaults, compute duration
 		flight = entity.NormalizeFlight(flight)
 
-		// Validate flight data
 		if !entity.IsValidFlight(flight) {
 			continue
 		}

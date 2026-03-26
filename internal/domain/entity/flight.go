@@ -11,6 +11,7 @@ type Flight struct {
 	ID           string
 	Provider     string
 	FlightNumber string
+	AirlineCode  string
 
 	// Route with timezone-aware locations
 	Origin      Location

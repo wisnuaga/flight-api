@@ -10,12 +10,18 @@ import (
 func mapToDomain(resp GarudaSearchResponse) []*entity.Flight {
 	var flights []*entity.Flight
 	for _, f := range resp.Flights {
-		depTimeUTC, err := util.ParseTimeWithOptionalTZ(f.Departure.Time, "")
-		if err != nil {
+		// Guard against nil pointers from the provider
+		if f.Departure == nil || f.Arrival == nil {
 			continue
 		}
 
-		arrTimeUTC, err := util.ParseTimeWithOptionalTZ(f.Arrival.Time, "")
+		// Garuda embeds the UTC offset directly in the time string (e.g. "2025-12-15T06:00:00+07:00").
+		// Extract the instant (UTC) and the fixed-offset location from the string itself.
+		depTimeUTC, depTz, err := util.ParseTimeFromString(f.Departure.Time)
+		if err != nil {
+			continue
+		}
+		arrTimeUTC, arrTz, err := util.ParseTimeFromString(f.Arrival.Time)
 		if err != nil {
 			continue
 		}
@@ -27,20 +33,22 @@ func mapToDomain(resp GarudaSearchResponse) []*entity.Flight {
 			currency = f.Price.Currency
 		}
 
-		// Initial Raw Flight Mapping
 		flight := entity.Flight{
 			ID:           f.FlightID,
 			Provider:     "Garuda",
-			FlightNumber: f.AirlineCode + f.FlightID[len(f.AirlineCode):],
+			FlightNumber: f.FlightID,
+			AirlineCode:  f.AirlineCode,
 			Origin: entity.Location{
 				Airport:  f.Departure.Airport,
-				Time:     depTimeUTC,
-				Timezone: depTimeUTC.Location(),
+				City:     f.Departure.City,
+				Time:     depTimeUTC, // UTC for internal filtering/sorting
+				Timezone: depTz,      // Fixed-offset location extracted from the time string
 			},
 			Destination: entity.Location{
 				Airport:  f.Arrival.Airport,
-				Time:     arrTimeUTC,
-				Timezone: arrTimeUTC.Location(),
+				City:     f.Arrival.City,
+				Time:     arrTimeUTC, // UTC for internal filtering/sorting
+				Timezone: arrTz,      // Fixed-offset location extracted from the time string
 			},
 			Price:          decimal.NewFromFloat(price),
 			Currency:       currency,
@@ -48,10 +56,8 @@ func mapToDomain(resp GarudaSearchResponse) []*entity.Flight {
 			AvailableSeats: f.AvailableSeats,
 		}
 
-		// Let domain rules normalize basic values and enforce duration calculation
 		flight = entity.NormalizeFlight(flight)
 
-		// Hard drop invalid/malformed response payload flight items
 		if !entity.IsValidFlight(flight) {
 			continue
 		}
