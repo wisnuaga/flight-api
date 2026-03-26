@@ -1,6 +1,8 @@
 package lionair
 
 import (
+	"fmt"
+
 	"github.com/shopspring/decimal"
 
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
@@ -31,8 +33,8 @@ func mapToDomain(resp LionResponse, req *entity.SearchRequest) []*entity.Flight 
 		}
 
 		flight := entity.Flight{
-			ID:           f.ID,
-			Provider:     "Lion Air",
+			ID:           fmt.Sprintf("%s_%s", f.ID, util.NormalizeAirlineName(f.Carrier.Name)),
+			Provider:     f.Carrier.Name,
 			FlightNumber: f.ID,
 			AirlineCode:  f.Carrier.IATA,
 			Origin: entity.Location{

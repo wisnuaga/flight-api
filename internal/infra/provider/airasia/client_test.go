@@ -43,9 +43,10 @@ func TestClient_Search(t *testing.T) {
 			expectErrStatus:  false,
 			checkFirstFlight: true,
 			expectedFirst: &entity.Flight{
-				ID:           "QZ520",
+				ID:           "QZ520_AirAsia",
 				Provider:     "AirAsia",
 				FlightNumber: "QZ520",
+				AirlineCode:  "QZ",
 				Origin: entity.Location{
 					Airport: "CGK",
 					Time:    mustParseTime("2025-12-15T04:45:00+07:00").UTC(),

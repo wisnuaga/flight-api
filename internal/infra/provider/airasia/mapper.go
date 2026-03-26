@@ -1,6 +1,8 @@
 package airasia
 
 import (
+	"fmt"
+
 	"github.com/shopspring/decimal"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	"github.com/wisnuaga/flight-api/internal/util"
@@ -29,10 +31,10 @@ func mapToDomain(resp AirAsiaResponse, req *entity.SearchRequest) []*entity.Flig
 		}
 
 		flight := entity.Flight{
-			ID:           f.FlightCode,
-			Provider:     "AirAsia",
+			ID:           fmt.Sprintf("%s_%s", f.FlightCode, util.NormalizeAirlineName(f.Airline)),
+			Provider:     f.Airline,
 			FlightNumber: f.FlightCode,
-			AirlineCode:  getFlightCodePrefix(f.FlightCode),
+			AirlineCode:  util.GetFlightCodePrefix(f.FlightCode),
 			Origin: entity.Location{
 				Airport:  f.FromAirport,
 				Time:     depTimeUTC, // UTC for internal filtering/sorting

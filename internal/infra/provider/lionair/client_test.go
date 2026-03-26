@@ -42,9 +42,10 @@ func TestClient_Search(t *testing.T) {
 			expectErrStatus:  false,
 			checkFirstFlight: true,
 			expectedFirst: &entity.Flight{
-				ID:           "JT740",
+				ID:           "JT740_LionAir",
 				Provider:     "Lion Air",
 				FlightNumber: "JT740",
+				AirlineCode:  "JT",
 				Origin: entity.Location{
 					Airport: "CGK",
 					Time:    mustParseTime("2025-12-15T05:30:00+07:00").UTC(),

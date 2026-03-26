@@ -1,6 +1,8 @@
 package batikair
 
 import (
+	"fmt"
+
 	"github.com/shopspring/decimal"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	"github.com/wisnuaga/flight-api/internal/util"
@@ -29,8 +31,8 @@ func mapToDomain(resp BatikResponse, req *entity.SearchRequest) []*entity.Flight
 		}
 
 		flight := entity.Flight{
-			ID:           f.FlightNumber,
-			Provider:     "Batik Air",
+			ID:           fmt.Sprintf("%s_%s", f.FlightNumber, util.NormalizeAirlineName(f.AirlineName)),
+			Provider:     f.AirlineName,
 			FlightNumber: f.FlightNumber,
 			AirlineCode:  f.AirlineIATA,
 			Origin: entity.Location{

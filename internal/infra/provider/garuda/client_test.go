@@ -55,9 +55,10 @@ func TestClient_Search(t *testing.T) {
 			expectedErr:      nil,
 			checkFirstFlight: true,
 			expectedFirst: &entity.Flight{
-				ID:           "GA400",
-				Provider:     "Garuda",
+				ID:           "GA400_GarudaIndonesia",
+				Provider:     "Garuda Indonesia",
 				FlightNumber: "GA400",
+				AirlineCode:  "GA",
 				Origin: entity.Location{
 					Airport:  "CGK",
 					Time:     mustParseTime("2025-12-15T06:00:00+07:00").UTC(),

@@ -1,6 +1,8 @@
 package garuda
 
 import (
+	"fmt"
+
 	"github.com/shopspring/decimal"
 
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
@@ -34,8 +36,8 @@ func mapToDomain(resp GarudaSearchResponse) []*entity.Flight {
 		}
 
 		flight := entity.Flight{
-			ID:           f.FlightID,
-			Provider:     "Garuda",
+			ID:           fmt.Sprintf("%s_%s", f.FlightID, util.NormalizeAirlineName(f.Airline)),
+			Provider:     f.Airline,
 			FlightNumber: f.FlightID,
 			AirlineCode:  f.AirlineCode,
 			Origin: entity.Location{
