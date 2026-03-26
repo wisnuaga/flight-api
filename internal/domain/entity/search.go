@@ -1,4 +1,4 @@
-package domain
+package entity
 
 import "time"
 
@@ -44,4 +44,6 @@ type SearchMeta struct {
 	Providers    int
 	SuccessCount int
 	FailedCount  int
+	SearchTimeMs int
+	CacheHit     bool
 }

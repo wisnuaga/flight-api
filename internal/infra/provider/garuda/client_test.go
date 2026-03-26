@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wisnuaga/flight-api/internal/domain"
-	"github.com/wisnuaga/flight-api/internal/repository/provider/garuda"
+	"github.com/wisnuaga/flight-api/internal/domain/entity"
+	"github.com/wisnuaga/flight-api/internal/infra/provider/garuda"
 )
 
 func TestClient_Name(t *testing.T) {
-	client := garuda.NewClient("../../../../tests/garuda_ok.json")
+	client := garuda.NewClient("../../../../../tests/garuda_ok.json")
 	if got := client.Name(); got != "Garuda" {
 		t.Errorf("Name() = %q, want %q", got, "Garuda")
 	}
@@ -22,12 +22,12 @@ func ptrString(s string) *string {
 }
 
 func TestClient_Search(t *testing.T) {
-	baseReq := &domain.SearchRequest{
+	baseReq := &entity.SearchRequest{
 		Origin:        "CGK",
 		Destination:   "DPS",
 		DepartureDate: time.Date(2025, 12, 15, 0, 0, 0, 0, time.UTC),
 		Passengers:    1,
-		Filter: domain.SearchFilter{
+		Filter: entity.SearchFilter{
 			CabinClass: ptrString("economy"),
 		},
 	}
@@ -36,15 +36,15 @@ func TestClient_Search(t *testing.T) {
 		name             string
 		mockPath         string
 		ctx              func() (context.Context, context.CancelFunc)
-		input            *domain.SearchRequest
+		input            *entity.SearchRequest
 		expectedLen      int
 		expectedErr      error
 		checkFirstFlight bool
-		expectedFirst    *domain.Flight
+		expectedFirst    *entity.Flight
 	}{
 		{
 			name:     "success - returns mapped flights from valid mock file",
-			mockPath: "../../../../tests/garuda_ok.json",
+			mockPath: "../../../../../tests/garuda_ok.json",
 			ctx: func() (context.Context, context.CancelFunc) {
 				return context.WithTimeout(context.Background(), 5*time.Second)
 			},
@@ -52,7 +52,7 @@ func TestClient_Search(t *testing.T) {
 			expectedLen:      3,
 			expectedErr:      nil,
 			checkFirstFlight: true,
-			expectedFirst: &domain.Flight{
+			expectedFirst: &entity.Flight{
 				ID:             "GA400",
 				Provider:       "Garuda",
 				FlightNumber:   "GA400",
@@ -69,7 +69,7 @@ func TestClient_Search(t *testing.T) {
 		},
 		{
 			name:     "error - mock file does not exist",
-			mockPath: "../../../../tests/nonexistent.json",
+			mockPath: "../../../../../tests/nonexistent.json",
 			ctx: func() (context.Context, context.CancelFunc) {
 				return context.WithTimeout(context.Background(), 5*time.Second)
 			},
@@ -79,9 +79,8 @@ func TestClient_Search(t *testing.T) {
 		},
 		{
 			name:     "error - context cancelled before response",
-			mockPath: "../../../../tests/garuda_ok.json",
+			mockPath: "../../../../../tests/garuda_ok.json",
 			ctx: func() (context.Context, context.CancelFunc) {
-				// deadline shorter than the 80ms simulated latency
 				return context.WithTimeout(context.Background(), 10*time.Millisecond)
 			},
 			input:       baseReq,
@@ -98,12 +97,10 @@ func TestClient_Search(t *testing.T) {
 			client := garuda.NewClient(tc.mockPath)
 			got, err := client.Search(ctx, tc.input)
 
-			// --- error assertion ---
 			if tc.expectedErr != nil {
 				if err == nil {
 					t.Fatalf("Search() error = nil, want non-nil (%v)", tc.expectedErr)
 				}
-				// Use errors.Is for context errors; for OS file errors a non-nil check suffices.
 				if errors.Is(tc.expectedErr, context.DeadlineExceeded) ||
 					errors.Is(tc.expectedErr, context.Canceled) {
 					if !errors.Is(err, tc.expectedErr) {
@@ -117,12 +114,10 @@ func TestClient_Search(t *testing.T) {
 				t.Fatalf("Search() unexpected error: %v", err)
 			}
 
-			// --- length assertion ---
 			if len(got) != tc.expectedLen {
 				t.Errorf("Search() returned %d flights, want %d", len(got), tc.expectedLen)
 			}
 
-			// --- first flight deep assertion ---
 			if tc.checkFirstFlight && len(got) > 0 {
 				assertFlight(t, got[0], tc.expectedFirst)
 			}
@@ -130,8 +125,7 @@ func TestClient_Search(t *testing.T) {
 	}
 }
 
-// assertFlight compares two *domain.Flight values field by field for readable diffs.
-func assertFlight(t *testing.T, got, want *domain.Flight) {
+func assertFlight(t *testing.T, got, want *entity.Flight) {
 	t.Helper()
 
 	fields := []struct {

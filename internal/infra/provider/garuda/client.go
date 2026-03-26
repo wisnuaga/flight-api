@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/wisnuaga/flight-api/internal/domain"
-	"github.com/wisnuaga/flight-api/utils"
+	"github.com/wisnuaga/flight-api/internal/domain/entity"
+	"github.com/wisnuaga/flight-api/internal/util"
 )
 
 type Client struct {
@@ -20,14 +20,14 @@ func (c *Client) Name() string {
 	return "Garuda"
 }
 
-func (c *Client) Search(ctx context.Context, req *domain.SearchRequest) ([]*domain.Flight, error) {
+func (c *Client) Search(ctx context.Context, req *entity.SearchRequest) ([]*entity.Flight, error) {
 	select {
 	case <-time.After(80 * time.Millisecond):
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
 
-	mockResp, err := utils.LoadMock[GarudaSearchResponse](c.mockPath)
+	mockResp, err := util.LoadMock[GarudaSearchResponse](c.mockPath)
 	if err != nil {
 		return nil, err
 	}

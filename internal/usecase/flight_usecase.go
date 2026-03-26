@@ -8,23 +8,31 @@ import (
 	"time"
 
 	"github.com/wisnuaga/flight-api/internal/domain"
-	"github.com/wisnuaga/flight-api/internal/repository/provider"
+	"github.com/wisnuaga/flight-api/internal/domain/entity"
+	"github.com/wisnuaga/flight-api/internal/port"
 )
 
 type searchResult struct {
-	flights []*domain.Flight
-	err     error
+	flights  []*entity.Flight
+	err      error
+	cacheHit bool
 }
 
 type FlightUsecaseImpl struct {
-	providers []provider.FlightProvider
+	providers []port.FlightProvider
+	cache     port.FlightCache
 }
 
-func NewFlightUsecase(registry *provider.Registry) *FlightUsecaseImpl {
-	return &FlightUsecaseImpl{providers: registry.GetProviders()}
+func NewFlightUsecase(providers []port.FlightProvider, cache port.FlightCache) *FlightUsecaseImpl {
+	return &FlightUsecaseImpl{
+		providers: providers,
+		cache:     cache,
+	}
 }
 
-func (u *FlightUsecaseImpl) Search(ctx context.Context, req *domain.SearchRequest) (*domain.SearchResult, error) {
+func (u *FlightUsecaseImpl) Search(ctx context.Context, req *entity.SearchRequest) (*entity.SearchResult, error) {
+	start := time.Now()
+
 	ctx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
 	defer cancel()
 
@@ -34,23 +42,62 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *domain.SearchReques
 	for _, p := range u.providers {
 		wg.Add(1)
 
-		go func(p provider.FlightProvider) {
+		go func(p port.FlightProvider) {
 			defer wg.Done()
 
-			flights, err := p.Search(ctx, req)
-			if err != nil {
-				// Inject traceID if present inside context for observability correlation
+			var flights []*entity.Flight
+			var err error
+
+			// Provider isolation caching check BEFORE executing network request
+			if cachedFlights, ok := u.cache.Get(p.Name(), req); ok {
+				select {
+				case <-ctx.Done():
+				case resultCh <- &searchResult{flights: cachedFlights, err: nil, cacheHit: true}:
+				}
+				return
+			}
+
+			// Exponential backoff retry (up to 3 times) for flaky upstream APIs
+		retry_loop:
+			for attempt := 0; attempt < 3; attempt++ {
+				flights, err = p.Search(ctx, req)
+				if err == nil {
+					u.cache.Set(p.Name(), req, flights)
+					break retry_loop
+				}
+				if ctx.Err() != nil {
+					break retry_loop
+				}
+
 				traceID, _ := ctx.Value("trace_id").(string)
-				slog.Error("flight provider aggregated search failed",
+				slog.Warn("provider search failed, retrying",
+					slog.String("trace_id", traceID),
+					slog.String("provider", p.Name()),
+					slog.Int("attempt", attempt+1),
+					slog.String("error", err.Error()),
+				)
+
+				// Backoff
+				backoff := time.Duration(1<<attempt) * 50 * time.Millisecond
+				select {
+				case <-time.After(backoff):
+				case <-ctx.Done():
+					break retry_loop
+				}
+			}
+
+			if err != nil {
+				traceID, _ := ctx.Value("trace_id").(string)
+				slog.Error("flight provider aggregated search completely failed",
 					slog.String("trace_id", traceID),
 					slog.String("provider", p.Name()),
 					slog.String("error", err.Error()),
 				)
 			}
 
-			resultCh <- &searchResult{
-				flights: flights,
-				err:     err,
+			select {
+			case <-ctx.Done():
+			case resultCh <- &searchResult{flights: flights, err: err, cacheHit: false}:
 			}
 		}(p)
 	}
@@ -60,21 +107,24 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *domain.SearchReques
 		close(resultCh)
 	}()
 
-	bestFlights := make(map[string]*domain.Flight)
+	bestFlights := make(map[string]*entity.Flight)
 	success := 0
 	failed := 0
+	cacheHits := 0
 
-	// O(N) Single-pass deduplication directly from the channel stream.
-	// Eradicates the massive 'allFlights' intermediate memory slice entirely!
+	// O(N) Single-pass deduplication directly from the channel stream
 	for res := range resultCh {
 		if res.err != nil {
 			failed++
 			continue
 		}
+		if res.cacheHit {
+			cacheHits++
+		}
 
 		success++
 		for _, f := range res.flights {
-			// Code-share deductive grouping heuristic: origin + dest + 5-minute departure/arrival truncation
+			// Code-share deduplication heuristic: origin + dest + 5-min rounded departure/arrival
 			dep := f.DepartureTime.Truncate(5 * time.Minute).Unix()
 			arr := f.ArrivalTime.Truncate(5 * time.Minute).Unix()
 			key := fmt.Sprintf("%s_%s_%d_%d", f.Origin, f.Destination, dep, arr)
@@ -85,24 +135,27 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *domain.SearchReques
 		}
 	}
 
-	// Pack the tightly verified unique flights into a single exact-bound slice
-	var deduplicated []*domain.Flight
+	var deduplicated []*entity.Flight
 	for _, f := range bestFlights {
 		deduplicated = append(deduplicated, f)
 	}
 
-	return u.buildSearchResult(deduplicated, req, success, failed), nil
+	result := u.buildSearchResult(deduplicated, req, success, failed)
+	result.Meta.CacheHit = (cacheHits > 0)
+	result.Meta.SearchTimeMs = int(time.Since(start).Milliseconds())
+
+	return result, nil
 }
 
-func (u *FlightUsecaseImpl) buildSearchResult(flights []*domain.Flight, req *domain.SearchRequest, success, failed int) *domain.SearchResult {
-	predicates := BuildFilterPredicates(&req.Filter)
-	flights = ApplyFilters(flights, predicates)
+func (u *FlightUsecaseImpl) buildSearchResult(flights []*entity.Flight, req *entity.SearchRequest, success, failed int) *entity.SearchResult {
+	predicates := domain.BuildFilterPredicates(&req.Filter)
+	flights = domain.ApplyFilters(flights, predicates)
 
-	ApplySorting(flights, req.Sort)
+	domain.ApplySorting(flights, req.Sort)
 
-	return &domain.SearchResult{
+	return &entity.SearchResult{
 		Flights: flights,
-		Meta: &domain.SearchMeta{
+		Meta: &entity.SearchMeta{
 			TotalFlights: len(flights),
 			Providers:    len(u.providers),
 			SuccessCount: success,

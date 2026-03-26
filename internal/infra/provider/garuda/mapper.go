@@ -1,12 +1,12 @@
 package garuda
 
 import (
-	"github.com/wisnuaga/flight-api/internal/domain"
+	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	"github.com/wisnuaga/flight-api/internal/util"
 )
 
-func mapToDomain(resp GarudaSearchResponse) []*domain.Flight {
-	var flights []*domain.Flight
+func mapToDomain(resp GarudaSearchResponse) []*entity.Flight {
+	var flights []*entity.Flight
 
 	for _, f := range resp.Flights {
 		dep, err := util.ParseTime(f.Departure.Time)
@@ -27,7 +27,7 @@ func mapToDomain(resp GarudaSearchResponse) []*domain.Flight {
 		}
 
 		// Initial Raw Flight Mapping
-		flight := domain.Flight{
+		flight := entity.Flight{
 			ID:             f.FlightID,
 			Provider:       "Garuda",
 			FlightNumber:   f.AirlineCode + f.FlightID[len(f.AirlineCode):],
@@ -42,10 +42,10 @@ func mapToDomain(resp GarudaSearchResponse) []*domain.Flight {
 		}
 
 		// Let domain rules normalize basic values and enforce duration calculation
-		flight = domain.NormalizeFlight(flight)
+		flight = entity.NormalizeFlight(flight)
 
 		// Hard drop invalid/malformed response payload flight items
-		if !domain.IsValidFlight(flight) {
+		if !entity.IsValidFlight(flight) {
 			continue
 		}
 

@@ -1,12 +1,14 @@
-package usecase
+package domain
 
 import (
-	"github.com/wisnuaga/flight-api/internal/domain"
+	"github.com/wisnuaga/flight-api/internal/domain/entity"
 )
 
-type FilterPredicate func(*domain.Flight) bool
+// FilterPredicate is a function that returns true if a flight passes the filter.
+type FilterPredicate func(*entity.Flight) bool
 
-func BuildFilterPredicates(filter *domain.SearchFilter) []FilterPredicate {
+// BuildFilterPredicates builds a list of filter predicates from the given SearchFilter.
+func BuildFilterPredicates(filter *entity.SearchFilter) []FilterPredicate {
 	var predicates []FilterPredicate
 
 	if filter == nil {
@@ -14,49 +16,49 @@ func BuildFilterPredicates(filter *domain.SearchFilter) []FilterPredicate {
 	}
 
 	if filter.MinPrice != nil {
-		predicates = append(predicates, func(f *domain.Flight) bool {
+		predicates = append(predicates, func(f *entity.Flight) bool {
 			return f.Price >= *filter.MinPrice
 		})
 	}
 
 	if filter.MaxPrice != nil {
-		predicates = append(predicates, func(f *domain.Flight) bool {
+		predicates = append(predicates, func(f *entity.Flight) bool {
 			return f.Price <= *filter.MaxPrice
 		})
 	}
 
 	if filter.MaxStops != nil {
-		predicates = append(predicates, func(f *domain.Flight) bool {
+		predicates = append(predicates, func(f *entity.Flight) bool {
 			return f.Stops <= *filter.MaxStops
 		})
 	}
 
 	if filter.DepartureStart != nil {
-		predicates = append(predicates, func(f *domain.Flight) bool {
+		predicates = append(predicates, func(f *entity.Flight) bool {
 			return !f.DepartureTime.Before(*filter.DepartureStart)
 		})
 	}
 
 	if filter.DepartureEnd != nil {
-		predicates = append(predicates, func(f *domain.Flight) bool {
+		predicates = append(predicates, func(f *entity.Flight) bool {
 			return !f.DepartureTime.After(*filter.DepartureEnd)
 		})
 	}
 
 	if filter.ArrivalStart != nil {
-		predicates = append(predicates, func(f *domain.Flight) bool {
+		predicates = append(predicates, func(f *entity.Flight) bool {
 			return !f.ArrivalTime.Before(*filter.ArrivalStart)
 		})
 	}
 
 	if filter.ArrivalEnd != nil {
-		predicates = append(predicates, func(f *domain.Flight) bool {
+		predicates = append(predicates, func(f *entity.Flight) bool {
 			return !f.ArrivalTime.After(*filter.ArrivalEnd)
 		})
 	}
 
 	if filter.MaxDuration != nil {
-		predicates = append(predicates, func(f *domain.Flight) bool {
+		predicates = append(predicates, func(f *entity.Flight) bool {
 			return f.Duration <= *filter.MaxDuration
 		})
 	}
@@ -66,13 +68,13 @@ func BuildFilterPredicates(filter *domain.SearchFilter) []FilterPredicate {
 		for _, code := range filter.AirlineCodes {
 			airlineMap[code] = true
 		}
-		predicates = append(predicates, func(f *domain.Flight) bool {
+		predicates = append(predicates, func(f *entity.Flight) bool {
 			return airlineMap[f.Provider]
 		})
 	}
 
 	if filter.CabinClass != nil {
-		predicates = append(predicates, func(f *domain.Flight) bool {
+		predicates = append(predicates, func(f *entity.Flight) bool {
 			return f.CabinClass == *filter.CabinClass
 		})
 	}
@@ -80,7 +82,8 @@ func BuildFilterPredicates(filter *domain.SearchFilter) []FilterPredicate {
 	return predicates
 }
 
-func ApplyFilters(flights []*domain.Flight, predicates []FilterPredicate) []*domain.Flight {
+// ApplyFilters filters flights in-place using the given predicates.
+func ApplyFilters(flights []*entity.Flight, predicates []FilterPredicate) []*entity.Flight {
 	if len(predicates) == 0 {
 		return flights
 	}

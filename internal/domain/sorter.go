@@ -1,27 +1,28 @@
-package usecase
+package domain
 
 import (
 	"sort"
 
-	"github.com/wisnuaga/flight-api/internal/domain"
+	"github.com/wisnuaga/flight-api/internal/domain/entity"
 )
 
-func ApplySorting(flights []*domain.Flight, sortParam domain.SearchSort) {
+// ApplySorting sorts flights in-place according to sortParam.
+func ApplySorting(flights []*entity.Flight, sortParam entity.SearchSort) {
 	field := sortParam.Field
 	if field == "" {
-		field = domain.SortByPrice
+		field = entity.SortByPrice
 	}
 
 	order := sortParam.Order
 	if order == "" {
-		order = domain.SortAsc
+		order = entity.SortAsc
 	}
 
-	// Compute max/min boundaries for normalization when calculating best value
+	// Compute boundaries for best-value normalisation
 	var minPrice, maxPrice float64
-	var minDuration, maxDuration int64 // store duration in int64 nanos or millis for diffs
+	var minDuration, maxDuration int64
 
-	if field == domain.SortByBestValue && len(flights) > 0 {
+	if field == entity.SortByBestValue && len(flights) > 0 {
 		minPrice = flights[0].Price
 		maxPrice = flights[0].Price
 		minDuration = int64(flights[0].Duration)
@@ -46,12 +47,12 @@ func ApplySorting(flights []*domain.Flight, sortParam domain.SearchSort) {
 
 	priceWeight := sortParam.PriceWeight
 	if priceWeight == 0 {
-		priceWeight = 1.0 // default
+		priceWeight = 1.0
 	}
 
 	durationWeight := sortParam.DurationWeight
 	if durationWeight == 0 {
-		durationWeight = 1.0 // default
+		durationWeight = 1.0
 	}
 
 	sort.SliceStable(flights, func(i, j int) bool {
@@ -59,15 +60,15 @@ func ApplySorting(flights []*domain.Flight, sortParam domain.SearchSort) {
 
 		var isLess bool
 		switch field {
-		case domain.SortByPrice:
+		case entity.SortByPrice:
 			isLess = f1.Price < f2.Price
-		case domain.SortByDuration:
+		case entity.SortByDuration:
 			isLess = f1.Duration < f2.Duration
-		case domain.SortByDeparture:
+		case entity.SortByDeparture:
 			isLess = f1.DepartureTime.Before(f2.DepartureTime)
-		case domain.SortByArrival:
+		case entity.SortByArrival:
 			isLess = f1.ArrivalTime.Before(f2.ArrivalTime)
-		case domain.SortByBestValue:
+		case entity.SortByBestValue:
 			score1 := calculateBestValueScore(f1, minPrice, maxPrice, minDuration, maxDuration, priceWeight, durationWeight)
 			score2 := calculateBestValueScore(f2, minPrice, maxPrice, minDuration, maxDuration, priceWeight, durationWeight)
 			isLess = score1 < score2
@@ -75,15 +76,15 @@ func ApplySorting(flights []*domain.Flight, sortParam domain.SearchSort) {
 			isLess = f1.Price < f2.Price
 		}
 
-		if order == domain.SortDesc {
+		if order == entity.SortDesc {
 			return !isLess
 		}
 		return isLess
 	})
 }
 
-// calculateBestValueScore gives a 0-1 mapped score for price and duration. Lowest is best.
-func calculateBestValueScore(f *domain.Flight, minPrice, maxPrice float64, minDur, maxDur int64, weightPrice, weightDur float64) float64 {
+// calculateBestValueScore returns a normalised 0-1 score for a flight (lower = better value).
+func calculateBestValueScore(f *entity.Flight, minPrice, maxPrice float64, minDur, maxDur int64, weightPrice, weightDur float64) float64 {
 	priceRange := maxPrice - minPrice
 	durRange := float64(maxDur - minDur)
 

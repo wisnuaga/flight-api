@@ -29,7 +29,7 @@ func (h *FlightHandler) Search(c *gin.Context) {
 		return
 	}
 
-	// Convert to domain
+	// Convert to domain entity
 	domainReq, err := req.ToDomain()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
