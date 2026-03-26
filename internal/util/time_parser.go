@@ -26,3 +26,23 @@ func ParseTime(value string) (time.Time, error) {
 	}
 	return time.Time{}, fmt.Errorf("unable to parse time value: %s", value)
 }
+
+// ParseTimeWithOptionalTZ parses timestamps like:
+// 1. "2006-01-02T15:04:05" + separate timezone string
+// 2. "2006-01-02T15:04:05-0700" with offset embedded
+func ParseTimeWithOptionalTZ(value string, tz string) (time.Time, error) {
+	if tz != "" {
+		loc, err := time.LoadLocation(tz)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("invalid timezone: %s", tz)
+		}
+		t, err := time.ParseInLocation("2006-01-02T15:04:05", value, loc)
+		if err != nil {
+			return time.Time{}, err
+		}
+		return t, nil
+	}
+
+	// fallback: parse using embedded timezone or UTC
+	return ParseTime(value) // reuse existing util.ParseTime
+}
