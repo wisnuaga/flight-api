@@ -16,7 +16,10 @@ func parseOptionalTime(t *string) *time.Time {
 	if err != nil {
 		return nil
 	}
-	return &parsed
+	// Always normalise to UTC so filter comparisons are consistent with
+	// the UTC times stored on Origin.Time / Destination.Time.
+	utc := parsed.UTC()
+	return &utc
 }
 
 func (r *SearchRequest) ToDomain() (entity.SearchRequest, error) {
@@ -64,6 +67,10 @@ func ToSearchResponse(req *SearchRequest, result *entity.SearchResult) SearchRes
 			hours := durationMins / 60
 			mins := durationMins % 60
 
+			// Convert locations to response format with timezone awareness
+			departure := ConvertLocationToResponse(f.Origin)
+			arrival := ConvertLocationToResponse(f.Destination)
+
 			flights = append(flights, Flight{
 				ID:       f.ID,
 				Provider: f.Provider,
@@ -72,18 +79,8 @@ func ToSearchResponse(req *SearchRequest, result *entity.SearchResult) SearchRes
 					Code: f.Provider,
 				},
 				FlightNumber: f.FlightNumber,
-				Departure: Location{
-					Airport:   f.Origin.Airport,
-					City:      f.Origin.City,
-					Datetime:  f.DepartureTime.Format(time.RFC3339),
-					Timestamp: f.DepartureTime.Unix(),
-				},
-				Arrival: Location{
-					Airport:   f.Destination.Airport,
-					City:      f.Destination.City,
-					Datetime:  f.ArrivalTime.Format(time.RFC3339),
-					Timestamp: f.ArrivalTime.Unix(),
-				},
+				Departure:    departure,
+				Arrival:      arrival,
 				Duration: Duration{
 					TotalMinutes: durationMins,
 					Formatted:    fmt.Sprintf("%dh %dm", hours, mins),
@@ -127,5 +124,29 @@ func ToSearchResponse(req *SearchRequest, result *entity.SearchResult) SearchRes
 		},
 		Metadata: meta,
 		Flights:  flights,
+	}
+}
+
+func ConvertLocationToResponse(loc entity.Location) Location {
+	// Default to UTC if timezone is not set
+	tz := loc.Timezone
+	if tz == nil {
+		tz = time.UTC
+	}
+
+	// Convert UTC time to the original timezone for display
+	localTime := loc.Time.In(tz)
+
+	// Format datetime with timezone offset (RFC3339 format)
+	datetime := localTime.Format(time.RFC3339)
+
+	// Unix timestamp (seconds since epoch) in UTC
+	timestamp := loc.Time.Unix()
+
+	return Location{
+		Airport:   loc.Airport,
+		City:      loc.City, // populated from entity after Normalize() sets it from airport code map
+		Datetime:  datetime,
+		Timestamp: timestamp,
 	}
 }

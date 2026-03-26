@@ -2,20 +2,20 @@ package garuda
 
 import (
 	"github.com/shopspring/decimal"
+
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	"github.com/wisnuaga/flight-api/internal/util"
 )
 
 func mapToDomain(resp GarudaSearchResponse) []*entity.Flight {
 	var flights []*entity.Flight
-
 	for _, f := range resp.Flights {
-		dep, err := util.ParseTime(f.Departure.Time)
+		depTimeUTC, err := util.ParseTimeWithOptionalTZ(f.Departure.Time, "")
 		if err != nil {
 			continue
 		}
 
-		arr, err := util.ParseTime(f.Arrival.Time)
+		arrTimeUTC, err := util.ParseTimeWithOptionalTZ(f.Arrival.Time, "")
 		if err != nil {
 			continue
 		}
@@ -33,13 +33,15 @@ func mapToDomain(resp GarudaSearchResponse) []*entity.Flight {
 			Provider:     "Garuda",
 			FlightNumber: f.AirlineCode + f.FlightID[len(f.AirlineCode):],
 			Origin: entity.Location{
-				Airport: f.Departure.Airport,
+				Airport:  f.Departure.Airport,
+				Time:     depTimeUTC,
+				Timezone: depTimeUTC.Location(),
 			},
 			Destination: entity.Location{
-				Airport: f.Arrival.Airport,
+				Airport:  f.Arrival.Airport,
+				Time:     arrTimeUTC,
+				Timezone: arrTimeUTC.Location(),
 			},
-			DepartureTime:  dep,
-			ArrivalTime:    arr,
 			Price:          decimal.NewFromFloat(price),
 			Currency:       currency,
 			CabinClass:     f.FareClass,

@@ -1,6 +1,9 @@
 package entity
 
-import "strings"
+import (
+	"strings"
+	"time"
+)
 
 var airportCityMap = map[string]string{
 	"CGK": "Jakarta",
@@ -10,9 +13,12 @@ var airportCityMap = map[string]string{
 	// Add more airport codes as needed for different providers
 }
 
+// Location represents a flight location (airport) with timezone-aware scheduling
 type Location struct {
-	Airport string
-	City    string
+	Airport  string
+	City     string
+	Time     time.Time      // Stored in UTC internally for filtering/sorting consistency
+	Timezone *time.Location // Original timezone from provider for output formatting
 }
 
 // GetCity returns city name from airport code

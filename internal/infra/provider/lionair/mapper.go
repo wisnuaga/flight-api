@@ -1,23 +1,23 @@
 package lionair
 
 import (
-	"time"
-
 	"github.com/shopspring/decimal"
+
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
+	"github.com/wisnuaga/flight-api/internal/util"
 )
 
 func mapToDomain(resp LionResponse, req *entity.SearchRequest) []*entity.Flight {
 	var flights []*entity.Flight
 	for _, f := range resp.Data.AvailableFlights {
-		depLoc, _ := time.LoadLocation(f.Schedule.DepartureTimezone)
-		dep, err := time.ParseInLocation("2006-01-02T15:04:05", f.Schedule.Departure, depLoc)
+		// Parse departure time with timezone info (Lion Air provides timezone data)
+		depTimeUTC, err := util.ParseTimeWithOptionalTZ(f.Schedule.Departure, f.Schedule.DepartureTimezone)
 		if err != nil {
 			continue
 		}
 
-		arrLoc, _ := time.LoadLocation(f.Schedule.ArrivalTimezone)
-		arr, err := time.ParseInLocation("2006-01-02T15:04:05", f.Schedule.Arrival, arrLoc)
+		// Parse arrival time with timezone info
+		arrTimeUTC, err := util.ParseTimeWithOptionalTZ(f.Schedule.Arrival, f.Schedule.ArrivalTimezone)
 		if err != nil {
 			continue
 		}
@@ -29,28 +29,35 @@ func mapToDomain(resp LionResponse, req *entity.SearchRequest) []*entity.Flight 
 			continue
 		}
 
+		// Map to domain Flight with timezone-aware locations
 		flight := entity.Flight{
 			ID:           f.ID,
 			Provider:     "Lion Air",
 			FlightNumber: f.ID,
 			Origin: entity.Location{
-				Airport: f.Route.From.Code,
+				Airport:  f.Route.From.Code,
+				Time:     depTimeUTC,
+				Timezone: depTimeUTC.Location(),
 			},
 			Destination: entity.Location{
-				Airport: f.Route.To.Code,
+				Airport:  f.Route.To.Code,
+				Time:     arrTimeUTC,
+				Timezone: arrTimeUTC.Location(),
 			},
-			DepartureTime:  dep,
-			ArrivalTime:    arr,
 			Price:          decimal.NewFromFloat(f.Pricing.Total),
 			Currency:       f.Pricing.Currency,
 			CabinClass:     f.Pricing.FareType,
 			AvailableSeats: f.SeatsLeft,
 		}
 
+		// Normalize: ensure UTC times, set defaults, compute duration
 		flight = entity.NormalizeFlight(flight)
+
+		// Validate flight data
 		if !entity.IsValidFlight(flight) {
 			continue
 		}
+
 		flights = append(flights, &flight)
 	}
 

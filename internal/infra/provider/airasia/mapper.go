@@ -3,16 +3,18 @@ package airasia
 import (
 	"github.com/shopspring/decimal"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
+	"github.com/wisnuaga/flight-api/internal/util"
 )
 
 func mapToDomain(resp AirAsiaResponse, req *entity.SearchRequest) []*entity.Flight {
 	var flights []*entity.Flight
 	for _, f := range resp.Flights {
-		dep, err := parseTime(f.DepartTime)
+		depTimeUTC, err := util.ParseTimeWithOptionalTZ(f.DepartTime, "")
 		if err != nil {
 			continue
 		}
-		arr, err := parseTime(f.ArriveTime)
+
+		arrTimeUTC, err := util.ParseTimeWithOptionalTZ(f.ArriveTime, "")
 		if err != nil {
 			continue
 		}
@@ -24,28 +26,35 @@ func mapToDomain(resp AirAsiaResponse, req *entity.SearchRequest) []*entity.Flig
 			continue
 		}
 
+		// Map to domain Flight with timezone-aware locations
 		flight := entity.Flight{
 			ID:           f.FlightCode,
 			Provider:     "AirAsia",
 			FlightNumber: f.FlightCode,
 			Origin: entity.Location{
-				Airport: f.FromAirport,
+				Airport:  f.FromAirport,
+				Time:     depTimeUTC,
+				Timezone: depTimeUTC.Location(),
 			},
 			Destination: entity.Location{
-				Airport: f.ToAirport,
+				Airport:  f.ToAirport,
+				Time:     arrTimeUTC,
+				Timezone: arrTimeUTC.Location(),
 			},
-			DepartureTime:  dep,
-			ArrivalTime:    arr,
 			Price:          decimal.NewFromFloat(f.PriceIDR),
 			Currency:       "IDR",
 			CabinClass:     f.CabinClass,
 			AvailableSeats: f.Seats,
 		}
 
+		// Normalize: ensure UTC times, set defaults, compute duration
 		flight = entity.NormalizeFlight(flight)
+
+		// Validate flight data
 		if !entity.IsValidFlight(flight) {
 			continue
 		}
+
 		flights = append(flights, &flight)
 	}
 

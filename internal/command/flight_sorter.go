@@ -74,9 +74,23 @@ func (c *flightSortCommandImpl) Execute(flights []*entity.Flight, sortParam enti
 		case entity.SortByDuration:
 			isLess = f1.Duration < f2.Duration
 		case entity.SortByDeparture:
-			isLess = f1.DepartureTime.Before(f2.DepartureTime)
+			// Push zero-time flights to the end; use UTC for timezone-safe comparison
+			if f1.Origin.Time.IsZero() {
+				isLess = false
+			} else if f2.Origin.Time.IsZero() {
+				isLess = true
+			} else {
+				isLess = f1.Origin.Time.Before(f2.Origin.Time)
+			}
 		case entity.SortByArrival:
-			isLess = f1.ArrivalTime.Before(f2.ArrivalTime)
+			// Push zero-time flights to the end; use UTC for timezone-safe comparison
+			if f1.Destination.Time.IsZero() {
+				isLess = false
+			} else if f2.Destination.Time.IsZero() {
+				isLess = true
+			} else {
+				isLess = f1.Destination.Time.Before(f2.Destination.Time)
+			}
 		case entity.SortByBestValue:
 			score1 := c.calculateBestValueScore(f1, minPrice, maxPrice, minDuration, maxDuration, priceWeight, durationWeight)
 			score2 := c.calculateBestValueScore(f2, minPrice, maxPrice, minDuration, maxDuration, priceWeight, durationWeight)

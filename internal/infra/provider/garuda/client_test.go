@@ -55,13 +55,19 @@ func TestClient_Search(t *testing.T) {
 			expectedErr:      nil,
 			checkFirstFlight: true,
 			expectedFirst: &entity.Flight{
-				ID:             "GA400",
-				Provider:       "Garuda",
-				FlightNumber:   "GA400",
-				Origin:         entity.Location{Airport: "CGK"},
-				Destination:    entity.Location{Airport: "DPS"},
-				DepartureTime:  mustParseTime("2025-12-15T06:00:00+07:00"),
-				ArrivalTime:    mustParseTime("2025-12-15T08:50:00+08:00"),
+				ID:           "GA400",
+				Provider:     "Garuda",
+				FlightNumber: "GA400",
+				Origin: entity.Location{
+					Airport:  "CGK",
+					Time:     mustParseTime("2025-12-15T06:00:00+07:00").UTC(),
+					Timezone: time.UTC, // Will be set to Asia/Jakarta by mapper
+				},
+				Destination: entity.Location{
+					Airport:  "DPS",
+					Time:     mustParseTime("2025-12-15T08:50:00+08:00").UTC(),
+					Timezone: time.UTC, // Will be set to Asia/Jakarta by mapper
+				},
 				Duration:       110 * time.Minute,
 				Price:          decimal.NewFromInt(1250000),
 				Currency:       "IDR",
@@ -139,8 +145,8 @@ func assertFlight(t *testing.T, got, want *entity.Flight) {
 		{"FlightNumber", got.FlightNumber, want.FlightNumber},
 		{"Origin.Airport", got.Origin.Airport, want.Origin.Airport},
 		{"Destination.Airport", got.Destination.Airport, want.Destination.Airport},
-		{"DepartureTime", got.DepartureTime.UTC(), want.DepartureTime.UTC()},
-		{"ArrivalTime", got.ArrivalTime.UTC(), want.ArrivalTime.UTC()},
+		{"Origin.Time", got.Origin.Time.UTC(), want.Origin.Time.UTC()},
+		{"Destination.Time", got.Destination.Time.UTC(), want.Destination.Time.UTC()},
 		{"Duration", got.Duration, want.Duration},
 		{"Currency", got.Currency, want.Currency},
 		{"CabinClass", got.CabinClass, want.CabinClass},

@@ -9,11 +9,12 @@ import (
 func mapToDomain(resp BatikResponse, req *entity.SearchRequest) []*entity.Flight {
 	var flights []*entity.Flight
 	for _, f := range resp.Results {
-		dep, err := util.ParseTime(f.DepartureDateTime)
+		depTimeUTC, err := util.ParseTimeWithOptionalTZ(f.DepartureDateTime, "")
 		if err != nil {
 			continue
 		}
-		arr, err := util.ParseTime(f.ArrivalDateTime)
+
+		arrTimeUTC, err := util.ParseTimeWithOptionalTZ(f.ArrivalDateTime, "")
 		if err != nil {
 			continue
 		}
@@ -25,28 +26,35 @@ func mapToDomain(resp BatikResponse, req *entity.SearchRequest) []*entity.Flight
 			continue
 		}
 
+		// Map to domain Flight with timezone-aware locations
 		flight := entity.Flight{
 			ID:           f.FlightNumber,
 			Provider:     "Batik Air",
 			FlightNumber: f.FlightNumber,
 			Origin: entity.Location{
-				Airport: f.Origin,
+				Airport:  f.Origin,
+				Time:     depTimeUTC,
+				Timezone: depTimeUTC.Location(),
 			},
 			Destination: entity.Location{
-				Airport: f.Destination,
+				Airport:  f.Destination,
+				Time:     arrTimeUTC,
+				Timezone: arrTimeUTC.Location(),
 			},
-			DepartureTime:  dep,
-			ArrivalTime:    arr,
 			Price:          decimal.NewFromFloat(f.Fare.TotalPrice),
 			Currency:       f.Fare.CurrencyCode,
 			CabinClass:     f.Fare.Class,
 			AvailableSeats: f.SeatsAvailable,
 		}
 
+		// Normalize: ensure UTC times, set defaults, compute duration
 		flight = entity.NormalizeFlight(flight)
+
+		// Validate flight data
 		if !entity.IsValidFlight(flight) {
 			continue
 		}
+
 		flights = append(flights, &flight)
 	}
 

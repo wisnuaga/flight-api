@@ -13,6 +13,7 @@ import (
 func ptrDecimal(d float64) *decimal.Decimal { a := decimal.NewFromFloat(d); return &a }
 func ptrInt(i int) *int                     { return &i }
 func ptrString(s string) *string            { return &s }
+func ptrTime(t time.Time) *time.Time        { return &t }
 
 func TestFlightFilterCommand_Execute(t *testing.T) {
 	cmd := command.NewFlightFilterCommand()
@@ -21,15 +22,21 @@ func TestFlightFilterCommand_Execute(t *testing.T) {
 	flights := []*entity.Flight{
 		{
 			ID: "1", Price: decimal.NewFromInt(1000), Stops: 0, Provider: "Garuda", CabinClass: "economy",
-			DepartureTime: baseTime, ArrivalTime: baseTime.Add(2 * time.Hour), Duration: 120 * time.Minute,
+			Origin:      entity.Location{Airport: "CGK", Time: baseTime},
+			Destination: entity.Location{Airport: "DPS", Time: baseTime.Add(2 * time.Hour)},
+			Duration:    120 * time.Minute,
 		},
 		{
 			ID: "2", Price: decimal.NewFromInt(2000), Stops: 1, Provider: "LionAir", CabinClass: "business",
-			DepartureTime: baseTime.Add(1 * time.Hour), ArrivalTime: baseTime.Add(4 * time.Hour), Duration: 180 * time.Minute,
+			Origin:      entity.Location{Airport: "CGK", Time: baseTime.Add(1 * time.Hour)},
+			Destination: entity.Location{Airport: "DPS", Time: baseTime.Add(4 * time.Hour)},
+			Duration:    180 * time.Minute,
 		},
 		{
 			ID: "3", Price: decimal.NewFromInt(1500), Stops: 0, Provider: "AirAsia", CabinClass: "economy",
-			DepartureTime: baseTime.Add(2 * time.Hour), ArrivalTime: baseTime.Add(5 * time.Hour), Duration: 180 * time.Minute,
+			Origin:      entity.Location{Airport: "CGK", Time: baseTime.Add(2 * time.Hour)},
+			Destination: entity.Location{Airport: "DPS", Time: baseTime.Add(5 * time.Hour)},
+			Duration:    180 * time.Minute,
 		},
 	}
 
@@ -73,5 +80,39 @@ func TestFlightFilterCommand_Execute(t *testing.T) {
 		copied := append([]*entity.Flight(nil), flights...)
 		res := cmd.Execute(copied, nil)
 		assert.Len(t, res, 3)
+	})
+
+	t.Run("filter by departure start (UTC) — excludes earlier flights", func(t *testing.T) {
+		// Only flights departing at baseTime+1h or later should pass
+		f := &entity.SearchFilter{DepartureStart: ptrTime(baseTime.Add(1 * time.Hour))}
+		copied := append([]*entity.Flight(nil), flights...)
+		res := cmd.Execute(copied, f)
+		assert.Len(t, res, 2)
+		assert.Equal(t, "2", res[0].ID) // dep = baseTime+1h
+		assert.Equal(t, "3", res[1].ID) // dep = baseTime+2h
+	})
+
+	t.Run("filter by arrival end (UTC) — excludes later flights", func(t *testing.T) {
+		// Only flights arriving at baseTime+3h or earlier should pass
+		f := &entity.SearchFilter{ArrivalEnd: ptrTime(baseTime.Add(3 * time.Hour))}
+		copied := append([]*entity.Flight(nil), flights...)
+		res := cmd.Execute(copied, f)
+		assert.Len(t, res, 1)
+		assert.Equal(t, "1", res[0].ID) // arr = baseTime+2h
+	})
+
+	t.Run("zero departure time rejected when departure start is set", func(t *testing.T) {
+		// A flight with a zero Origin.Time must never pass a DepartureStart filter
+		zeroTimeFlight := &entity.Flight{
+			ID:          "zero",
+			Price:       decimal.NewFromInt(999),
+			Origin:      entity.Location{Airport: "CGK"}, // Time is zero value
+			Destination: entity.Location{Airport: "DPS", Time: baseTime.Add(2 * time.Hour)},
+			Duration:    120 * time.Minute,
+		}
+		f := &entity.SearchFilter{DepartureStart: ptrTime(baseTime)}
+		copied := []*entity.Flight{zeroTimeFlight}
+		res := cmd.Execute(copied, f)
+		assert.Len(t, res, 0, "flight with zero departure time should be rejected")
 	})
 }

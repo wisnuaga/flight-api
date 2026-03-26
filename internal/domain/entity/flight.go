@@ -12,13 +12,11 @@ type Flight struct {
 	Provider     string
 	FlightNumber string
 
-	// Route
+	// Route with timezone-aware locations
 	Origin      Location
 	Destination Location
 
-	// Schedule
-	DepartureTime  time.Time
-	ArrivalTime    time.Time
+	// Schedule and pricing
 	Duration       time.Duration
 	Price          decimal.Decimal
 	Currency       string
@@ -40,7 +38,7 @@ func (f *Flight) Normalize() {
 }
 
 // NormalizeFlight returns a fully normalised copy of f, filling in defaults
-// and recomputing duration from departure/arrival times.
+// and recomputing duration from departure/arrival times (UTC-based).
 func NormalizeFlight(f Flight) Flight {
 	if f.CabinClass == "" {
 		f.CabinClass = "economy"
@@ -50,17 +48,25 @@ func NormalizeFlight(f Flight) Flight {
 		f.AvailableSeats = 1 // minimum default
 	}
 
-	// Always store times in UTC for consistent handling across providers
-	if !f.DepartureTime.IsZero() {
-		f.DepartureTime = f.DepartureTime.UTC()
+	// Ensure times are in UTC for consistent handling across providers
+	if !f.Origin.Time.IsZero() {
+		f.Origin.Time = f.Origin.Time.UTC()
 	}
-	if !f.ArrivalTime.IsZero() {
-		f.ArrivalTime = f.ArrivalTime.UTC()
+	if !f.Destination.Time.IsZero() {
+		f.Destination.Time = f.Destination.Time.UTC()
 	}
 
-	// Compute duration from times
-	if !f.ArrivalTime.IsZero() && !f.DepartureTime.IsZero() {
-		f.Duration = f.ArrivalTime.Sub(f.DepartureTime)
+	// Default timezone to UTC if not set
+	if f.Origin.Timezone == nil {
+		f.Origin.Timezone = time.UTC
+	}
+	if f.Destination.Timezone == nil {
+		f.Destination.Timezone = time.UTC
+	}
+
+	// Compute duration from UTC times
+	if !f.Destination.Time.IsZero() && !f.Origin.Time.IsZero() {
+		f.Duration = f.Destination.Time.Sub(f.Origin.Time)
 	}
 
 	// Apply entity-level normalisation (uppercase codes, default currency)
@@ -79,14 +85,17 @@ func IsValidFlight(f Flight) bool {
 		return false
 	}
 
-	if f.DepartureTime.IsZero() || f.ArrivalTime.IsZero() {
+	// Both times must be present and valid
+	if f.Origin.Time.IsZero() || f.Destination.Time.IsZero() {
 		return false
 	}
 
-	if !f.ArrivalTime.After(f.DepartureTime) {
+	// Arrival must be after departure
+	if !f.Destination.Time.After(f.Origin.Time) {
 		return false
 	}
 
+	// Duration must be positive
 	if f.Duration <= 0 {
 		return false
 	}

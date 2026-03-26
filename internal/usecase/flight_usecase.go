@@ -111,9 +111,9 @@ func (u *FlightUsecaseImpl) Search(ctx context.Context, req *entity.SearchReques
 
 		success++
 		for _, f := range res.flights {
-			// Code-share deduplication heuristic: origin + dest + 5-min rounded departure/arrival
-			dep := f.DepartureTime.Truncate(5 * time.Minute).Unix()
-			arr := f.ArrivalTime.Truncate(5 * time.Minute).Unix()
+			// Code-share deduplication heuristic: origin + dest + 5-min rounded departure/arrival (UTC)
+			dep := f.Origin.Time.Truncate(5 * time.Minute).Unix()
+			arr := f.Destination.Time.Truncate(5 * time.Minute).Unix()
 			key := fmt.Sprintf("%s_%s_%d_%d", f.Origin.Airport, f.Destination.Airport, dep, arr)
 
 			// Simple de-duplication: keep the cheaper flight

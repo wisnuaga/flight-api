@@ -34,11 +34,11 @@ func TestFlightHandler_Search(t *testing.T) {
 		usecaseMock.On("Search", testifymock.Anything, testifymock.AnythingOfType("*entity.SearchRequest")).Return(&entity.SearchResult{
 			Flights: []*entity.Flight{
 				{
-					ID:            "F1",
-					Provider:      "Garuda",
-					FlightNumber:  "GA123",
-					DepartureTime: time.Now(),
-					ArrivalTime:   time.Now().Add(2 * time.Hour),
+					ID:           "F1",
+					Provider:     "Garuda",
+					FlightNumber: "GA123",
+					Origin:       entity.Location{Airport: "CGK", Time: time.Now().UTC(), Timezone: time.UTC},
+					Destination:  entity.Location{Airport: "DPS", Time: time.Now().Add(2 * time.Hour).UTC(), Timezone: time.UTC},
 				},
 			},
 			Meta: &entity.SearchMeta{TotalFlights: 1},
