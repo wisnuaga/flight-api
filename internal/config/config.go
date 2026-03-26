@@ -10,11 +10,14 @@ import (
 type Config struct {
 	Service ServiceConfig `envPrefix:"SERVICE_"`
 
-	Providers    []string     `env:"PROVIDERS" envSeparator:","`
-	GarudaConfig GarudaConfig `envPrefix:"GARUDA_"`
+	Providers      []string       `env:"PROVIDERS" envSeparator:","`
+	GarudaConfig   ProviderConfig `envPrefix:"GARUDA_"`
+	LionAirConfig  ProviderConfig `envPrefix:"LIONAIR_"`
+	BatikAirConfig ProviderConfig `envPrefix:"BATIKAIR_"`
+	AirAsiaConfig  ProviderConfig `envPrefix:"AIRASIA_"`
 }
 
-type GarudaConfig struct {
+type ProviderConfig struct {
 	MockPath string `env:"MOCK_PATH"`
 }
 

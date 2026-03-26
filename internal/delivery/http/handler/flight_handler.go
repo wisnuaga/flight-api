@@ -5,10 +5,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/wisnuaga/flight-api/internal/delivery/http/dto"
+	"github.com/wisnuaga/flight-api/internal/port"
 )
 
 type FlightHandlerUsecases struct {
-	FlightUsecase FlightUsecase
+	FlightUsecase port.FlightUsecase
 }
 
 type FlightHandler struct {
@@ -29,7 +30,7 @@ func (h *FlightHandler) Search(c *gin.Context) {
 		return
 	}
 
-	// Convert to domain
+	// Convert to domain entity
 	domainReq, err := req.ToDomain()
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -38,6 +39,7 @@ func (h *FlightHandler) Search(c *gin.Context) {
 		return
 	}
 
+	// Search flights
 	result, err := h.Usecases.FlightUsecase.Search(c, &domainReq)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{

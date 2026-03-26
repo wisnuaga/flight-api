@@ -1,4 +1,4 @@
-.PHONY: all build dev run test clean
+.PHONY: all build dev run test clean mock
 
 # Variables
 APP_NAME=flight-api
@@ -24,3 +24,7 @@ run:
 clean:
 	@echo "Cleaning build directory..."
 	@rm -rf $(BIN_DIR)/
+
+mock:
+	@echo "Generating mocks..."
+	@go run github.com/vektra/mockery/v2@latest --dir internal --all --output ./tests/mock --outpkg mock
