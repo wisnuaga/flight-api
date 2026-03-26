@@ -10,7 +10,6 @@ import (
 
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	"github.com/wisnuaga/flight-api/internal/port"
-	"github.com/wisnuaga/flight-api/pkg/cache"
 )
 
 type searchResult struct {
@@ -21,14 +20,14 @@ type searchResult struct {
 
 type FlightUsecaseImpl struct {
 	providers []port.FlightProvider
-	cache     cache.Cache[[]*entity.Flight]
+	cache     port.Cache[[]*entity.Flight]
 	filterCmd port.FlightFilterCommand
 	sortCmd   port.FlightSortCommand
 }
 
 func NewFlightUsecase(
 	providers []port.FlightProvider,
-	c cache.Cache[[]*entity.Flight],
+	c port.Cache[[]*entity.Flight],
 	filterCmd port.FlightFilterCommand,
 	sortCmd port.FlightSortCommand,
 ) *FlightUsecaseImpl {

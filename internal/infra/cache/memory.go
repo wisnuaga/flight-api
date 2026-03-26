@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	"github.com/wisnuaga/flight-api/internal/port"
 )
 
 type memoryEntry[T any] struct {
@@ -11,11 +13,14 @@ type memoryEntry[T any] struct {
 	expiresAt time.Time
 }
 
-// MemoryCache is a thread-safe generic in-memory cache.
+// MemoryCache is a thread-safe generic in-memory cache adapter implementing port.Cache[T].
 type MemoryCache[T any] struct {
 	mu      sync.RWMutex
 	entries map[string]memoryEntry[T]
 }
+
+// Ensure MemoryCache strictly implements port.Cache
+var _ port.Cache[any] = (*MemoryCache[any])(nil)
 
 // NewMemoryCache creates a new in-memory cache instance.
 func NewMemoryCache[T any]() *MemoryCache[T] {

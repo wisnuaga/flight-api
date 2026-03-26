@@ -6,9 +6,9 @@ import (
 	"github.com/wisnuaga/flight-api/internal/config"
 	"github.com/wisnuaga/flight-api/internal/delivery/http/handler"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
+	"github.com/wisnuaga/flight-api/internal/infra/cache"
 	infraprovider "github.com/wisnuaga/flight-api/internal/infra/provider"
 	"github.com/wisnuaga/flight-api/internal/usecase"
-	"github.com/wisnuaga/flight-api/pkg/cache"
 )
 
 // Setup builds the Gin engine with all routes registered.

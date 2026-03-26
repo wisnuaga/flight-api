@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	testifymock "github.com/stretchr/testify/mock"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
+	"github.com/wisnuaga/flight-api/internal/infra/cache"
 	"github.com/wisnuaga/flight-api/internal/port"
 	"github.com/wisnuaga/flight-api/internal/usecase"
-	"github.com/wisnuaga/flight-api/pkg/cache"
 	"github.com/wisnuaga/flight-api/tests/mock"
 )
 
