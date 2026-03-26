@@ -2,52 +2,51 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/wisnuaga/flight-api/internal/command"
 	"github.com/wisnuaga/flight-api/internal/config"
 	"github.com/wisnuaga/flight-api/internal/delivery/http/handler"
-	"github.com/wisnuaga/flight-api/internal/repository/provider"
+	"github.com/wisnuaga/flight-api/internal/domain/entity"
+	"github.com/wisnuaga/flight-api/internal/infra/cache"
+	infraprovider "github.com/wisnuaga/flight-api/internal/infra/provider"
 	"github.com/wisnuaga/flight-api/internal/usecase"
 )
+
+// Setup builds the Gin engine with all routes registered.
+// For this slim API, it serves as our composition root.
+func Setup(cfg *config.Config) *gin.Engine {
+	r := gin.Default()
+
+	// 1. Build Infrastructure
+	flightCache := cache.NewMemoryCache[[]*entity.Flight]()
+	registry := infraprovider.NewRegistry(cfg)
+
+	// 2. Build Commands
+	filterCmd := command.NewFlightFilterCommand()
+	sortCmd := command.NewFlightSortCommand()
+
+	// 3. Build Core Usecases
+	flightUsecase := usecase.NewFlightUsecase(
+		registry.GetProviders(),
+		flightCache,
+		filterCmd,
+		sortCmd,
+	)
+
+	// 4. Build Endpoints
+	handlers := Handlers{
+		Health: handler.NewHealthHandler(),
+		Flight: handler.NewFlightHandler(&handler.FlightHandlerUsecases{
+			FlightUsecase: flightUsecase,
+		}),
+	}
+
+	registerRoutes(r, handlers)
+	return r
+}
 
 type Handlers struct {
 	Health *handler.HealthHandler
 	Flight *handler.FlightHandler
-}
-
-type Usecases struct {
-	FlightUsecase FlightUsecase
-}
-
-func Setup(cfg *config.Config) *gin.Engine {
-	r := gin.Default()
-
-	// Init handlers
-	usecases := initUsecases(cfg)
-	handlers := initHandlers(&usecases)
-	registerRoutes(r, handlers)
-
-	return r
-}
-
-func initHandlers(usecases *Usecases) Handlers {
-	return Handlers{
-		Health: handler.NewHealthHandler(),
-		Flight: handler.NewFlightHandler(&handler.FlightHandlerUsecases{
-			FlightUsecase: usecases.FlightUsecase,
-		}),
-	}
-}
-
-func initUsecases(cfg *config.Config) Usecases {
-	providerRegistry := provider.NewRegistry(provider.RegistryConfig{
-		EnabledProviders: cfg.Providers,
-		MockPath: map[string]string{
-			"garuda": cfg.GarudaConfig.MockPath,
-		},
-	})
-
-	return Usecases{
-		FlightUsecase: usecase.NewFlightUsecase(providerRegistry),
-	}
 }
 
 func registerRoutes(r *gin.Engine, h Handlers) {

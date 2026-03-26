@@ -9,16 +9,15 @@ import (
 )
 
 func main() {
-	// Load Configurations
+	// Load configuration
 	cfg := config.LoadConfig()
 
-	// Setup router (Gin)
+	// Setup HTTP router (handles full composition root wiring internally)
 	r := router.Setup(cfg)
 
 	port := fmt.Sprintf(":%s", cfg.Service.Port)
 	log.Printf("Server is starting and listening on port %s...\n", port)
 
-	// Start server
 	if err := r.Run(port); err != nil {
 		log.Fatalf("failed to start server: %v", err)
 	}
