@@ -12,7 +12,7 @@ import (
 )
 
 func TestClient_Name(t *testing.T) {
-	client := garuda.NewClient("../../../../../tests/factory/garuda_ok.json")
+	client := garuda.NewClient("../../../../../tests/factory/garuda_search_response.json")
 	if got := client.Name(); got != "Garuda" {
 		t.Errorf("Name() = %q, want %q", got, "Garuda")
 	}
@@ -45,7 +45,7 @@ func TestClient_Search(t *testing.T) {
 	}{
 		{
 			name:     "success - returns mapped flights from valid mock file",
-			mockPath: "../../../../../tests/factory/garuda_ok.json",
+			mockPath: "../../../../../tests/factory/garuda_search_response.json",
 			ctx: func() (context.Context, context.CancelFunc) {
 				return context.WithTimeout(context.Background(), 5*time.Second)
 			},
@@ -80,7 +80,7 @@ func TestClient_Search(t *testing.T) {
 		},
 		{
 			name:     "error - context cancelled before response",
-			mockPath: "../../../../../tests/factory/garuda_ok.json",
+			mockPath: "../../../../../tests/factory/garuda_search_response.json",
 			ctx: func() (context.Context, context.CancelFunc) {
 				return context.WithTimeout(context.Background(), 10*time.Millisecond)
 			},

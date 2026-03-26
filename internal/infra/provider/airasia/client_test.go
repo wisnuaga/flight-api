@@ -12,7 +12,7 @@ import (
 )
 
 func TestClient_Name(t *testing.T) {
-	client := airasia.NewClient("../../../../../tests/factory/airasia_ok.json")
+	client := airasia.NewClient("../../../../../tests/factory/airasia_search_response.json")
 	if got := client.Name(); got != "AirAsia" {
 		t.Errorf("Name() = %q, want %q", got, "AirAsia")
 	}
@@ -33,7 +33,7 @@ func TestClient_Search(t *testing.T) {
 	}{
 		{
 			name:     "success - returns mapped flights from valid mock file",
-			mockPath: "../../../../../tests/factory/airasia_ok.json",
+			mockPath: "../../../../../tests/factory/airasia_search_response.json",
 			ctx: func() (context.Context, context.CancelFunc) {
 				return context.WithTimeout(context.Background(), 5*time.Second)
 			},
