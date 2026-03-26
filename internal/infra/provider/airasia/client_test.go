@@ -9,10 +9,11 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	"github.com/wisnuaga/flight-api/internal/infra/provider/airasia"
+	"github.com/wisnuaga/flight-api/internal/test_helper"
 )
 
 func TestClient_Name(t *testing.T) {
-	client := airasia.NewClient("../../../../../tests/factory/airasia_search_response.json")
+	client := airasia.NewClient(test_helper.GetTestDataPath("airasia_search_response.json"))
 	if got := client.Name(); got != "AirAsia" {
 		t.Errorf("Name() = %q, want %q", got, "AirAsia")
 	}
@@ -33,7 +34,7 @@ func TestClient_Search(t *testing.T) {
 	}{
 		{
 			name:     "success - returns mapped flights from valid mock file",
-			mockPath: "../../../../../tests/factory/airasia_search_response.json",
+			mockPath: test_helper.GetTestDataPath("airasia_search_response.json"),
 			ctx: func() (context.Context, context.CancelFunc) {
 				return context.WithTimeout(context.Background(), 5*time.Second)
 			},
@@ -42,13 +43,18 @@ func TestClient_Search(t *testing.T) {
 			expectErrStatus:  false,
 			checkFirstFlight: true,
 			expectedFirst: &entity.Flight{
-				ID:             "QZ520",
-				Provider:       "AirAsia",
-				FlightNumber:   "QZ520",
-				Origin:         "CGK",
-				Destination:    "DPS",
-				DepartureTime:  mustParseTime("2025-12-15T04:45:00+07:00"),
-				ArrivalTime:    mustParseTime("2025-12-15T07:25:00+08:00"),
+				ID:           "QZ520_AirAsia",
+				Airline:      entity.AirlineAirAsia,
+				FlightNumber: "QZ520",
+				AirlineCode:  "QZ",
+				Origin: entity.Location{
+					Airport: "CGK",
+					Time:    mustParseTime("2025-12-15T04:45:00+07:00").UTC(),
+				},
+				Destination: entity.Location{
+					Airport: "DPS",
+					Time:    mustParseTime("2025-12-15T07:25:00+08:00").UTC(),
+				},
 				Duration:       100 * time.Minute,
 				Price:          decimal.NewFromInt(650000),
 				Currency:       "IDR",
@@ -58,7 +64,7 @@ func TestClient_Search(t *testing.T) {
 		},
 		{
 			name:     "error - mock file does not exist",
-			mockPath: "../../../../../tests/factory/nonexistent.json",
+			mockPath: test_helper.GetTestDataPath("nonexistent.json"),
 			ctx: func() (context.Context, context.CancelFunc) {
 				return context.WithTimeout(context.Background(), 5*time.Second)
 			},
@@ -123,14 +129,13 @@ func assertFlight(t *testing.T, got, want *entity.Flight) {
 		got, exp interface{}
 	}{
 		{"ID", got.ID, want.ID},
-		{"Provider", got.Provider, want.Provider},
+		{"Airline", got.Airline, want.Airline},
 		{"FlightNumber", got.FlightNumber, want.FlightNumber},
-		{"Origin", got.Origin, want.Origin},
-		{"Destination", got.Destination, want.Destination},
-		{"DepartureTime", got.DepartureTime.UTC(), want.DepartureTime.UTC()},
-		{"ArrivalTime", got.ArrivalTime.UTC(), want.ArrivalTime.UTC()},
+		{"Origin.Airport", got.Origin.Airport, want.Origin.Airport},
+		{"Destination.Airport", got.Destination.Airport, want.Destination.Airport},
+		{"Origin.Time", got.Origin.Time.UTC(), want.Origin.Time.UTC()},
+		{"Destination.Time", got.Destination.Time.UTC(), want.Destination.Time.UTC()},
 		{"Duration", got.Duration, want.Duration},
-		{"Price", got.Price, want.Price},
 		{"Currency", got.Currency, want.Currency},
 		{"CabinClass", got.CabinClass, want.CabinClass},
 		{"AvailableSeats", got.AvailableSeats, want.AvailableSeats},
@@ -139,6 +144,10 @@ func assertFlight(t *testing.T, got, want *entity.Flight) {
 		if f.got != f.exp {
 			t.Errorf("Flight.%s = %v, want %v", f.name, f.got, f.exp)
 		}
+	}
+	// Compare price separately using decimal comparison
+	if !got.Price.Equal(want.Price) {
+		t.Errorf("Flight.Price = %v, want %v", got.Price, want.Price)
 	}
 }
 

@@ -1,21 +1,30 @@
 package garuda
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/shopspring/decimal"
+
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	"github.com/wisnuaga/flight-api/internal/util"
 )
 
-func mapToDomain(resp GarudaSearchResponse) []*entity.Flight {
+func mapToDomain(resp SearchResponse) []*entity.Flight {
 	var flights []*entity.Flight
-
 	for _, f := range resp.Flights {
-		dep, err := util.ParseTime(f.Departure.Time)
-		if err != nil {
+		// Guard against nil pointers from the provider
+		if f.Departure == nil || f.Arrival == nil {
 			continue
 		}
 
-		arr, err := util.ParseTime(f.Arrival.Time)
+		// Garuda embeds the UTC offset directly in the time string (e.g. "2025-12-15T06:00:00+07:00").
+		// Extract the instant (UTC) and the fixed-offset location from the string itself.
+		depTimeUTC, depTz, err := util.ParseTimeFromString(f.Departure.Time)
+		if err != nil {
+			continue
+		}
+		arrTimeUTC, arrTz, err := util.ParseTimeFromString(f.Arrival.Time)
 		if err != nil {
 			continue
 		}
@@ -27,25 +36,45 @@ func mapToDomain(resp GarudaSearchResponse) []*entity.Flight {
 			currency = f.Price.Currency
 		}
 
-		// Initial Raw Flight Mapping
+		layovers := []*entity.Layover{}
+		for _, seg := range f.Segments {
+			if seg.LayoverMinutes == nil {
+				continue // skip, because layover time will calculate on the next iteration
+			}
+
+			layovers = append(layovers, &entity.Layover{
+				Airport:  seg.Departure.Airport,
+				Duration: time.Duration(*seg.LayoverMinutes) * time.Minute,
+			})
+		}
+
 		flight := entity.Flight{
-			ID:             f.FlightID,
-			Provider:       "Garuda",
-			FlightNumber:   f.AirlineCode + f.FlightID[len(f.AirlineCode):],
-			Origin:         f.Departure.Airport,
-			Destination:    f.Arrival.Airport,
-			DepartureTime:  dep,
-			ArrivalTime:    arr,
+			ID:           fmt.Sprintf("%s_%s", f.FlightID, util.NormalizeAirlineName(f.Airline)),
+			Airline:      entity.AirlineGaruda,
+			FlightNumber: f.FlightID,
+			AirlineCode:  f.AirlineCode,
+			Origin: entity.Location{
+				Airport:  f.Departure.Airport,
+				City:     f.Departure.City,
+				Time:     depTimeUTC, // UTC for internal filtering/sorting
+				Timezone: depTz,      // Fixed-offset location extracted from the time string
+			},
+			Destination: entity.Location{
+				Airport:  f.Arrival.Airport,
+				City:     f.Arrival.City,
+				Time:     arrTimeUTC, // UTC for internal filtering/sorting
+				Timezone: arrTz,      // Fixed-offset location extracted from the time string
+			},
 			Price:          decimal.NewFromFloat(price),
 			Currency:       currency,
 			CabinClass:     f.FareClass,
 			AvailableSeats: f.AvailableSeats,
+			Stops:          len(layovers),
+			Layovers:       layovers,
 		}
 
-		// Let domain rules normalize basic values and enforce duration calculation
 		flight = entity.NormalizeFlight(flight)
 
-		// Hard drop invalid/malformed response payload flight items
 		if !entity.IsValidFlight(flight) {
 			continue
 		}

@@ -1,23 +1,27 @@
 package lionair
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/shopspring/decimal"
+
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
+	"github.com/wisnuaga/flight-api/internal/util"
 )
 
-func mapToDomain(resp LionResponse, req *entity.SearchRequest) []*entity.Flight {
+func mapToDomain(resp SearchResponse, req *entity.SearchRequest) []*entity.Flight {
 	var flights []*entity.Flight
 	for _, f := range resp.Data.AvailableFlights {
-		depLoc, _ := time.LoadLocation(f.Schedule.DepartureTimezone)
-		dep, err := time.ParseInLocation("2006-01-02T15:04:05", f.Schedule.Departure, depLoc)
+		// Lion Air is the only provider that supplies separate IANA timezone names
+		// (departure_timezone / arrival_timezone fields). Use ParseTimeWithTZInfo to
+		// parse the naive datetime string in that named timezone and preserve it.
+		depTimeUTC, depTz, err := util.ParseTimeWithTZInfo(f.Schedule.Departure, f.Schedule.DepartureTimezone)
 		if err != nil {
 			continue
 		}
 
-		arrLoc, _ := time.LoadLocation(f.Schedule.ArrivalTimezone)
-		arr, err := time.ParseInLocation("2006-01-02T15:04:05", f.Schedule.Arrival, arrLoc)
+		arrTimeUTC, arrTz, err := util.ParseTimeWithTZInfo(f.Schedule.Arrival, f.Schedule.ArrivalTimezone)
 		if err != nil {
 			continue
 		}
@@ -29,24 +33,43 @@ func mapToDomain(resp LionResponse, req *entity.SearchRequest) []*entity.Flight 
 			continue
 		}
 
+		layovers := []*entity.Layover{}
+		for _, lo := range f.Layovers {
+			layovers = append(layovers, &entity.Layover{
+				Airport:  lo.Airport,
+				Duration: time.Duration(lo.DurationMinutes) * time.Minute,
+			})
+		}
+
 		flight := entity.Flight{
-			ID:             f.ID,
-			Provider:       "Lion Air",
-			FlightNumber:   f.ID,
-			Origin:         f.Route.From.Code,
-			Destination:    f.Route.To.Code,
-			DepartureTime:  dep,
-			ArrivalTime:    arr,
+			ID:           fmt.Sprintf("%s_%s", f.ID, util.NormalizeAirlineName(f.Carrier.Name)),
+			Airline:      entity.AirlineLionAir,
+			FlightNumber: f.ID,
+			AirlineCode:  f.Carrier.IATA,
+			Origin: entity.Location{
+				Airport:  f.Route.From.Code,
+				Time:     depTimeUTC, // UTC for internal filtering/sorting
+				Timezone: depTz,      // Named IANA location from the provider
+			},
+			Destination: entity.Location{
+				Airport:  f.Route.To.Code,
+				Time:     arrTimeUTC, // UTC for internal filtering/sorting
+				Timezone: arrTz,      // Named IANA location from the provider
+			},
 			Price:          decimal.NewFromFloat(f.Pricing.Total),
 			Currency:       f.Pricing.Currency,
 			CabinClass:     f.Pricing.FareType,
 			AvailableSeats: f.SeatsLeft,
+			Stops:          len(layovers),
+			Layovers:       layovers,
 		}
 
 		flight = entity.NormalizeFlight(flight)
+
 		if !entity.IsValidFlight(flight) {
 			continue
 		}
+
 		flights = append(flights, &flight)
 	}
 

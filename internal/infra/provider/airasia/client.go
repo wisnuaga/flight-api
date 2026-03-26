@@ -2,7 +2,6 @@ package airasia
 
 import (
 	"context"
-	"errors"
 	"math/rand"
 	"time"
 
@@ -23,18 +22,21 @@ func (c *Client) Name() string {
 }
 
 func (c *Client) Search(ctx context.Context, req *entity.SearchRequest) ([]*entity.Flight, error) {
-	if rand.Float32() < 0.10 {
-		return nil, errors.New("upstream gateway timeout simulated")
-	}
+	//// 10% failure rate
+	//if rand.Float32() < 0.10 {
+	//	return nil, errors.New("upstream gateway timeout simulated")
+	//}
 
-	delayMs := rand.Intn(101) + 50
+	// Random delay between 50ms and 150ms
+	delay := time.Duration(50+rand.Intn(101)) * time.Millisecond // rand.Intn(101) -> 0..101
+
 	select {
-	case <-time.After(time.Duration(delayMs) * time.Millisecond):
+	case <-time.After(delay):
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
 
-	mockResp, err := util.LoadMock[AirAsiaResponse](c.mockPath)
+	mockResp, err := util.LoadMock[SearchResponse](c.mockPath)
 	if err != nil {
 		return nil, err
 	}

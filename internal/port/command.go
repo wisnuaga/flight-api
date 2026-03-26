@@ -11,3 +11,8 @@ type FlightFilterCommand interface {
 type FlightSortCommand interface {
 	Execute(flights []*entity.Flight, sortParam entity.SearchSort)
 }
+
+// RoundTripCombinerCommand encapsulates the round-trip combination logic.
+type RoundTripCombinerCommand interface {
+	Combine(outboundFlights, returnFlights []*entity.Flight) []*entity.RoundTripItinerary
+}

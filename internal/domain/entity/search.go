@@ -10,6 +10,7 @@ type SearchRequest struct {
 	Origin        string
 	Destination   string
 	DepartureDate time.Time
+	ReturnDate    *time.Time // nil for one-way, set for round-trip
 	Passengers    int
 
 	Filter SearchFilter
@@ -31,16 +32,25 @@ type SearchFilter struct {
 	ArrivalEnd     *time.Time
 	MaxDuration    *time.Duration
 
-	// Airline filters
-	AirlineCodes []string
+	// Airline filters (by airline name, not code)
+	Airlines []AirlineName
 
 	// Cabin class filters
 	CabinClass *string
 }
 
 type SearchResult struct {
-	Flights []*Flight
-	Meta    *SearchMeta
+	Flights              []*Flight
+	RoundTripItineraries []*RoundTripItinerary
+	Meta                 *SearchMeta
+}
+
+// RoundTripItinerary represents a complete round-trip itinerary with outbound and return flights
+type RoundTripItinerary struct {
+	OutboundFlight *Flight
+	ReturnFlight   *Flight
+	TotalPrice     decimal.Decimal
+	TotalDuration  time.Duration
 }
 
 type SearchMeta struct {

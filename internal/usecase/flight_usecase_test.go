@@ -26,10 +26,25 @@ func newMockProvider(name string, flights []*entity.Flight, err error) *mock.Moc
 func TestFlightUsecase_Search(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC)
 	mockFlights := []*entity.Flight{
-		{ID: "F1", Provider: "Alpha", FlightNumber: "AL1", Price: decimal.NewFromInt(1500), Duration: 120 * time.Minute, Stops: 1, DepartureTime: baseTime, ArrivalTime: baseTime.Add(2 * time.Hour)},
-		{ID: "F2", Provider: "Beta", FlightNumber: "BE2", Price: decimal.NewFromInt(1000), Duration: 150 * time.Minute, Stops: 0, DepartureTime: baseTime.Add(1 * time.Hour), ArrivalTime: baseTime.Add(3*time.Hour + 30*time.Minute)},
+		{
+			ID: "F1", Airline: entity.AirlineGaruda, FlightNumber: "AL1",
+			Price: decimal.NewFromInt(1500), Duration: 120 * time.Minute, Stops: 1,
+			Origin:      entity.Location{Airport: "CGK", Time: baseTime, Timezone: time.UTC},
+			Destination: entity.Location{Airport: "DPS", Time: baseTime.Add(2 * time.Hour), Timezone: time.UTC},
+		},
+		{
+			ID: "F2", Airline: entity.AirlineLionAir, FlightNumber: "BE2",
+			Price: decimal.NewFromInt(1000), Duration: 150 * time.Minute, Stops: 0,
+			Origin:      entity.Location{Airport: "CGK", Time: baseTime.Add(1 * time.Hour), Timezone: time.UTC},
+			Destination: entity.Location{Airport: "DPS", Time: baseTime.Add(3*time.Hour + 30*time.Minute), Timezone: time.UTC},
+		},
 		// Duplicate of F1 but cheaper
-		{ID: "F4", Provider: "Gamma", FlightNumber: "AL1", Price: decimal.NewFromInt(1200), Duration: 120 * time.Minute, Stops: 1, DepartureTime: baseTime, ArrivalTime: baseTime.Add(2 * time.Hour)},
+		{
+			ID: "F4", Airline: entity.AirlineAirAsia, FlightNumber: "AL1",
+			Price: decimal.NewFromInt(1200), Duration: 120 * time.Minute, Stops: 1,
+			Origin:      entity.Location{Airport: "CGK", Time: baseTime, Timezone: time.UTC},
+			Destination: entity.Location{Airport: "DPS", Time: baseTime.Add(2 * time.Hour), Timezone: time.UTC},
+		},
 	}
 
 	testCases := []struct {

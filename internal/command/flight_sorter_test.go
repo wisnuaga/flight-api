@@ -15,9 +15,27 @@ func TestFlightSortCommand_Execute(t *testing.T) {
 	baseTime := time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC)
 
 	flights := []*entity.Flight{
-		{ID: "F1", Price: decimal.NewFromInt(2000), Duration: 120 * time.Minute, DepartureTime: baseTime.Add(2 * time.Hour), ArrivalTime: baseTime.Add(4 * time.Hour)},
-		{ID: "F2", Price: decimal.NewFromInt(1000), Duration: 180 * time.Minute, DepartureTime: baseTime.Add(1 * time.Hour), ArrivalTime: baseTime.Add(4 * time.Hour)},
-		{ID: "F3", Price: decimal.NewFromInt(1500), Duration: 90 * time.Minute, DepartureTime: baseTime, ArrivalTime: baseTime.Add(1*time.Hour + 30*time.Minute)},
+		{
+			ID:          "F1",
+			Price:       decimal.NewFromInt(2000),
+			Duration:    120 * time.Minute,
+			Origin:      entity.Location{Airport: "CGK", Time: baseTime.Add(2 * time.Hour)},
+			Destination: entity.Location{Airport: "DPS", Time: baseTime.Add(4 * time.Hour)},
+		},
+		{
+			ID:          "F2",
+			Price:       decimal.NewFromInt(1000),
+			Duration:    180 * time.Minute,
+			Origin:      entity.Location{Airport: "CGK", Time: baseTime.Add(1 * time.Hour)},
+			Destination: entity.Location{Airport: "DPS", Time: baseTime.Add(4 * time.Hour)},
+		},
+		{
+			ID:          "F3",
+			Price:       decimal.NewFromInt(1500),
+			Duration:    90 * time.Minute,
+			Origin:      entity.Location{Airport: "CGK", Time: baseTime},
+			Destination: entity.Location{Airport: "DPS", Time: baseTime.Add(1*time.Hour + 30*time.Minute)},
+		},
 	}
 
 	t.Run("sort by price asc (default mapping)", func(t *testing.T) {
@@ -50,6 +68,30 @@ func TestFlightSortCommand_Execute(t *testing.T) {
 		assert.Equal(t, "F3", copied[0].ID) // Base Time
 		assert.Equal(t, "F2", copied[1].ID) // Base + 1h
 		assert.Equal(t, "F1", copied[2].ID) // Base + 2h
+	})
+
+	t.Run("sort by arrival time asc", func(t *testing.T) {
+		copied := append([]*entity.Flight(nil), flights...)
+		cmd.Execute(copied, entity.SearchSort{Field: entity.SortByArrival, Order: entity.SortAsc})
+		// F3 arr = baseTime+1h30m, F1/F2 arr = baseTime+4h
+		assert.Equal(t, "F3", copied[0].ID)
+		// F1 and F2 have identical arrival times — stable sort preserves their relative order
+		assert.ElementsMatch(t, []string{"F1", "F2"}, []string{copied[1].ID, copied[2].ID})
+	})
+
+	t.Run("zero departure time sorts last (ascending)", func(t *testing.T) {
+		baseTime2 := time.Date(2025, 1, 1, 10, 0, 0, 0, time.UTC)
+		flightsWithZero := []*entity.Flight{
+			{ID: "Fz", Price: decimal.NewFromInt(100),
+				Origin:      entity.Location{Airport: "CGK"}, // zero Time
+				Destination: entity.Location{Airport: "DPS"}},
+			{ID: "Fa", Price: decimal.NewFromInt(100),
+				Origin:      entity.Location{Airport: "CGK", Time: baseTime2},
+				Destination: entity.Location{Airport: "DPS", Time: baseTime2.Add(2 * time.Hour)}},
+		}
+		cmd.Execute(flightsWithZero, entity.SearchSort{Field: entity.SortByDeparture, Order: entity.SortAsc})
+		assert.Equal(t, "Fa", flightsWithZero[0].ID, "real-time flight should sort first")
+		assert.Equal(t, "Fz", flightsWithZero[1].ID, "zero-time flight should sort last")
 	})
 
 	t.Run("sort by best value", func(t *testing.T) {

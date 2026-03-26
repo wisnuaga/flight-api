@@ -1,7 +1,6 @@
 package entity
 
 import (
-	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -10,16 +9,15 @@ import (
 type Flight struct {
 	// Basic info
 	ID           string
-	Provider     string
+	Airline      AirlineName // The airline/provider name (e.g., "Garuda Indonesia")
 	FlightNumber string
+	AirlineCode  string // IATA airline code (e.g., "GA" for Garuda)
 
-	// Route
-	Origin      string
-	Destination string
+	// Route with timezone-aware locations
+	Origin      Location
+	Destination Location
 
-	// Schedule
-	DepartureTime  time.Time
-	ArrivalTime    time.Time
+	// Schedule and pricing
 	Duration       time.Duration
 	Price          decimal.Decimal
 	Currency       string
@@ -27,13 +25,14 @@ type Flight struct {
 	AvailableSeats int
 
 	// Routing info
-	Stops int
+	Stops    int
+	Layovers []*Layover
 }
 
 // Normalize applies basic field normalisations on the Flight value.
 func (f *Flight) Normalize() {
-	f.Origin = strings.ToUpper(f.Origin)
-	f.Destination = strings.ToUpper(f.Destination)
+	f.Origin.Normalize()
+	f.Destination.Normalize()
 
 	if f.Currency == "" {
 		f.Currency = "IDR"
@@ -41,7 +40,7 @@ func (f *Flight) Normalize() {
 }
 
 // NormalizeFlight returns a fully normalised copy of f, filling in defaults
-// and recomputing duration from departure/arrival times.
+// and recomputing duration from departure/arrival times (UTC-based).
 func NormalizeFlight(f Flight) Flight {
 	if f.CabinClass == "" {
 		f.CabinClass = "economy"
@@ -51,20 +50,28 @@ func NormalizeFlight(f Flight) Flight {
 		f.AvailableSeats = 1 // minimum default
 	}
 
-	// Always store times in UTC for consistent handling across providers
-	if !f.DepartureTime.IsZero() {
-		f.DepartureTime = f.DepartureTime.UTC()
+	// Ensure times are in UTC for consistent handling across providers
+	if !f.Origin.Time.IsZero() {
+		f.Origin.Time = f.Origin.Time.UTC()
 	}
-	if !f.ArrivalTime.IsZero() {
-		f.ArrivalTime = f.ArrivalTime.UTC()
-	}
-
-	// Compute duration from times
-	if !f.ArrivalTime.IsZero() && !f.DepartureTime.IsZero() {
-		f.Duration = f.ArrivalTime.Sub(f.DepartureTime)
+	if !f.Destination.Time.IsZero() {
+		f.Destination.Time = f.Destination.Time.UTC()
 	}
 
-	// Apply entity-level normalisation (uppercase codes, default currency)
+	// Default timezone to UTC if not set
+	if f.Origin.Timezone == nil {
+		f.Origin.Timezone = time.UTC
+	}
+	if f.Destination.Timezone == nil {
+		f.Destination.Timezone = time.UTC
+	}
+
+	// Compute duration from UTC times
+	if !f.Destination.Time.IsZero() && !f.Origin.Time.IsZero() {
+		f.Duration = f.Destination.Time.Sub(f.Origin.Time)
+	}
+
+	// Apply entity-level normalization (uppercase codes, default currency)
 	f.Normalize()
 
 	return f
@@ -72,7 +79,7 @@ func NormalizeFlight(f Flight) Flight {
 
 // IsValidFlight validates that a Flight meets minimum business rules.
 func IsValidFlight(f Flight) bool {
-	if f.Origin == "" || f.Destination == "" {
+	if f.Origin.Airport == "" || f.Destination.Airport == "" {
 		return false
 	}
 
@@ -80,17 +87,29 @@ func IsValidFlight(f Flight) bool {
 		return false
 	}
 
-	if f.DepartureTime.IsZero() || f.ArrivalTime.IsZero() {
+	// Both times must be present and valid
+	if f.Origin.Time.IsZero() || f.Destination.Time.IsZero() {
 		return false
 	}
 
-	if !f.ArrivalTime.After(f.DepartureTime) {
+	// Arrival must be after departure
+	if !f.Destination.Time.After(f.Origin.Time) {
 		return false
 	}
 
+	// Duration must be positive
 	if f.Duration <= 0 {
 		return false
 	}
 
 	return true
+}
+
+// TotalTripDuration returns sum of all in-air duration + layovers
+func (f *Flight) TotalTripDuration() time.Duration {
+	total := f.Duration
+	for _, l := range f.Layovers {
+		total += l.Duration
+	}
+	return total
 }

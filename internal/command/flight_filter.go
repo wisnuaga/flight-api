@@ -41,25 +41,45 @@ func (c *flightFilterCommandImpl) buildPredicates(filter *entity.SearchFilter) [
 
 	if filter.DepartureStart != nil {
 		predicates = append(predicates, func(f *entity.Flight) bool {
-			return !f.DepartureTime.Before(*filter.DepartureStart)
+			// Reject zero times — they would compare as before any real start boundary
+			if f.Origin.Time.IsZero() {
+				return false
+			}
+			// Use UTC time from Origin for consistent timezone-safe comparison
+			return !f.Origin.Time.Before(*filter.DepartureStart)
 		})
 	}
 
 	if filter.DepartureEnd != nil {
 		predicates = append(predicates, func(f *entity.Flight) bool {
-			return !f.DepartureTime.After(*filter.DepartureEnd)
+			// Reject zero times — they have no meaningful departure to compare
+			if f.Origin.Time.IsZero() {
+				return false
+			}
+			// Use UTC time from Origin for consistent timezone-safe comparison
+			return !f.Origin.Time.After(*filter.DepartureEnd)
 		})
 	}
 
 	if filter.ArrivalStart != nil {
 		predicates = append(predicates, func(f *entity.Flight) bool {
-			return !f.ArrivalTime.Before(*filter.ArrivalStart)
+			// Reject zero times — they would compare as before any real start boundary
+			if f.Destination.Time.IsZero() {
+				return false
+			}
+			// Use UTC time from Destination for consistent timezone-safe comparison
+			return !f.Destination.Time.Before(*filter.ArrivalStart)
 		})
 	}
 
 	if filter.ArrivalEnd != nil {
 		predicates = append(predicates, func(f *entity.Flight) bool {
-			return !f.ArrivalTime.After(*filter.ArrivalEnd)
+			// Reject zero times — they have no meaningful arrival to compare
+			if f.Destination.Time.IsZero() {
+				return false
+			}
+			// Use UTC time from Destination for consistent timezone-safe comparison
+			return !f.Destination.Time.After(*filter.ArrivalEnd)
 		})
 	}
 
@@ -69,13 +89,14 @@ func (c *flightFilterCommandImpl) buildPredicates(filter *entity.SearchFilter) [
 		})
 	}
 
-	if len(filter.AirlineCodes) > 0 {
-		airlineMap := make(map[string]bool, len(filter.AirlineCodes))
-		for _, code := range filter.AirlineCodes {
-			airlineMap[code] = true
+	if len(filter.Airlines) > 0 {
+		airlineMap := make(map[entity.AirlineName]bool, len(filter.Airlines))
+		for _, airline := range filter.Airlines {
+			airlineMap[airline] = true
 		}
 		predicates = append(predicates, func(f *entity.Flight) bool {
-			return airlineMap[f.Provider]
+			// Match on airline name (e.g. "Garuda Indonesia")
+			return airlineMap[f.Airline]
 		})
 	}
 

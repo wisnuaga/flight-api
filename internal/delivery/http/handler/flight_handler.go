@@ -39,7 +39,8 @@ func (h *FlightHandler) Search(c *gin.Context) {
 		return
 	}
 
-	// Search flights
+	// The Search method handles both one-way and round-trip searches
+	// based on whether ReturnDate is provided
 	result, err := h.Usecases.FlightUsecase.Search(c, &domainReq)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -48,5 +49,12 @@ func (h *FlightHandler) Search(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.ToSearchResponse(&req, result))
+	// Check if this is a round-trip search based on the ReturnDate
+	if domainReq.ReturnDate != nil {
+		// Round-trip search - include round-trip itineraries in response
+		c.JSON(http.StatusOK, dto.ToRoundTripResponseWithMeta(&req, result.RoundTripItineraries, result))
+	} else {
+		// One-way search
+		c.JSON(http.StatusOK, dto.ToSearchResponse(&req, result))
+	}
 }
