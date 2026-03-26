@@ -39,10 +39,20 @@ func (r *SearchRequest) ToDomain() (entity.SearchRequest, error) {
 		maxDuration = &d
 	}
 
+	// Parse optional return date for round-trip searches
+	var returnDate *time.Time
+	if r.ReturnDate != nil && *r.ReturnDate != "" {
+		returnTime, err := time.Parse("2006-01-02", *r.ReturnDate)
+		if err == nil {
+			returnDate = &returnTime
+		}
+	}
+
 	return entity.SearchRequest{
 		Origin:        r.Origin,
 		Destination:   r.Destination,
 		DepartureDate: departureTime,
+		ReturnDate:    returnDate,
 		Passengers:    r.Passengers,
 		Filter: entity.SearchFilter{
 			MinPrice:       r.MinPrice,
@@ -93,7 +103,7 @@ func ToSearchResponse(req *SearchRequest, result *entity.SearchResult) SearchRes
 				Price: Price{
 					Amount:    f.Price.IntPart(),
 					Currency:  f.Currency,
-					Formatted: fmt.Sprintf("%s %d", f.Currency, f.Price.IntPart()),
+					Formatted: util.FormatPriceDecimal(f.Price, f.Currency),
 				},
 				AvailableSeats: f.AvailableSeats,
 				CabinClass:     f.CabinClass,
@@ -149,8 +159,122 @@ func ConvertLocationToResponse(loc entity.Location) Location {
 
 	return Location{
 		Airport:   loc.Airport,
-		City:      loc.City, // populated from entity after Normalize() sets it from airport code map
+		City:      loc.City,
 		Datetime:  datetime,
 		Timestamp: timestamp,
+	}
+}
+
+// ToRoundTripResponse converts round-trip itineraries to a response DTO
+func ToRoundTripResponse(req *SearchRequest, itineraries []*entity.RoundTripItinerary) RoundTripResponse {
+	return ToRoundTripResponseWithMeta(req, itineraries, nil)
+}
+
+// ToRoundTripResponseWithMeta converts round-trip itineraries with metadata to a response DTO
+func ToRoundTripResponseWithMeta(req *SearchRequest, itineraries []*entity.RoundTripItinerary, result *entity.SearchResult) RoundTripResponse {
+	var roundTrips []RoundTripItinerary
+
+	for _, itinerary := range itineraries {
+		// Format outbound flight
+		outboundDurationMins := int(itinerary.OutboundFlight.TotalTripDuration().Minutes())
+		outboundHours := outboundDurationMins / 60
+		outboundMins := outboundDurationMins % 60
+
+		outboundFlight := Flight{
+			ID:       itinerary.OutboundFlight.ID,
+			Provider: itinerary.OutboundFlight.Provider,
+			Airline: Airline{
+				Name: itinerary.OutboundFlight.Provider,
+				Code: itinerary.OutboundFlight.AirlineCode,
+			},
+			FlightNumber: itinerary.OutboundFlight.FlightNumber,
+			Departure:    ConvertLocationToResponse(itinerary.OutboundFlight.Origin),
+			Arrival:      ConvertLocationToResponse(itinerary.OutboundFlight.Destination),
+			Duration: Duration{
+				TotalMinutes: outboundDurationMins,
+				Formatted:    fmt.Sprintf("%dh %dm", outboundHours, outboundMins),
+			},
+			Stops: itinerary.OutboundFlight.Stops,
+			Price: Price{
+				Amount:    itinerary.OutboundFlight.Price.IntPart(),
+				Currency:  itinerary.OutboundFlight.Currency,
+				Formatted: util.FormatPriceDecimal(itinerary.OutboundFlight.Price, itinerary.OutboundFlight.Currency),
+			},
+			AvailableSeats: itinerary.OutboundFlight.AvailableSeats,
+			CabinClass:     itinerary.OutboundFlight.CabinClass,
+		}
+
+		// Format return flight
+		returnDurationMins := int(itinerary.ReturnFlight.TotalTripDuration().Minutes())
+		returnHours := returnDurationMins / 60
+		returnMins := returnDurationMins % 60
+
+		returnFlight := Flight{
+			ID:       itinerary.ReturnFlight.ID,
+			Provider: itinerary.ReturnFlight.Provider,
+			Airline: Airline{
+				Name: itinerary.ReturnFlight.Provider,
+				Code: itinerary.ReturnFlight.AirlineCode,
+			},
+			FlightNumber: itinerary.ReturnFlight.FlightNumber,
+			Departure:    ConvertLocationToResponse(itinerary.ReturnFlight.Origin),
+			Arrival:      ConvertLocationToResponse(itinerary.ReturnFlight.Destination),
+			Duration: Duration{
+				TotalMinutes: returnDurationMins,
+				Formatted:    fmt.Sprintf("%dh %dm", returnHours, returnMins),
+			},
+			Stops: itinerary.ReturnFlight.Stops,
+			Price: Price{
+				Amount:    itinerary.ReturnFlight.Price.IntPart(),
+				Currency:  itinerary.ReturnFlight.Currency,
+				Formatted: util.FormatPriceDecimal(itinerary.ReturnFlight.Price, itinerary.ReturnFlight.Currency),
+			},
+			AvailableSeats: itinerary.ReturnFlight.AvailableSeats,
+			CabinClass:     itinerary.ReturnFlight.CabinClass,
+		}
+
+		// Format total duration
+		totalDurationMins := int(itinerary.TotalDuration.Minutes())
+		totalHours := totalDurationMins / 60
+		totalMins := totalDurationMins % 60
+
+		roundTrips = append(roundTrips, RoundTripItinerary{
+			OutboundFlight: outboundFlight,
+			ReturnFlight:   returnFlight,
+			TotalPrice: Price{
+				Amount:    itinerary.TotalPrice.IntPart(),
+				Currency:  itinerary.OutboundFlight.Currency,
+				Formatted: util.FormatPriceDecimal(itinerary.TotalPrice, itinerary.OutboundFlight.Currency),
+			},
+			TotalDuration: Duration{
+				TotalMinutes: totalDurationMins,
+				Formatted:    fmt.Sprintf("%dh %dm", totalHours, totalMins),
+			},
+		})
+	}
+
+	meta := Metadata{}
+	if result != nil && result.Meta != nil {
+		meta = Metadata{
+			TotalResults:       result.Meta.TotalFlights,
+			ProvidersQueried:   result.Meta.Providers,
+			ProvidersSucceeded: result.Meta.SuccessCount,
+			ProvidersFailed:    result.Meta.FailedCount,
+			SearchTimeMs:       result.Meta.SearchTimeMs,
+			CacheHit:           result.Meta.CacheHit,
+		}
+	}
+
+	return RoundTripResponse{
+		SearchCriteria: SearchCriteria{
+			Origin:        req.Origin,
+			Destination:   req.Destination,
+			DepartureDate: req.DepartureDate,
+			ReturnDate:    req.ReturnDate,
+			Passengers:    req.Passengers,
+			CabinClass:    req.CabinClass,
+		},
+		Metadata:    meta,
+		Itineraries: roundTrips,
 	}
 }

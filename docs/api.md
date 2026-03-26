@@ -10,7 +10,7 @@ The Flight API aggregates real-time flight data from multiple airline providers 
 
 ### `POST /flights/search`
 
-Search for available flights across all configured providers.
+Search for available flights across all configured providers. Supports both one-way and round-trip searches.
 
 ---
 
@@ -25,6 +25,7 @@ Search for available flights across all configured providers.
 | `origin` | string | Yes | Departure airport IATA code (e.g. `"CGK"`) |
 | `destination` | string | Yes | Arrival airport IATA code (e.g. `"DPS"`) |
 | `departure_date` | string | Yes | Departure date in `YYYY-MM-DD` format |
+| `return_date` | string | No | Return date in `YYYY-MM-DD` format. Omit for one-way search, include for round-trip search |
 | `passengers` | integer | No | Number of passengers (default: 0 = any) |
 | `cabin_class` | string | No | Filter by cabin class (e.g. `"economy"`, `"business"`) |
 | `min_price` | number | No | Minimum price filter (currency matches provider, typically IDR) |
@@ -40,6 +41,8 @@ Search for available flights across all configured providers.
 | `sort_order` | string | No | Sort direction: `asc` \| `desc` (default: `asc`) |
 
 > **Note:** All time filters are compared against UTC-normalised departure/arrival times. Provide times with a timezone offset (e.g. `2025-12-15T06:00:00+07:00`) for accurate filtering, or bare UTC timestamps.
+>
+> **Round-Trip:** Include `return_date` to search for round-trip itineraries. The API will combine outbound and return flights, enforcing a minimum 90-minute layover and maximum 24-hour layover between flights.
 
 ---
 
@@ -47,13 +50,23 @@ Search for available flights across all configured providers.
 
 **Content-Type:** `application/json`
 
-### Body Structure
+For one-way searches, the response contains:
 
 ```json
 {
   "search_criteria": { ... },
   "metadata": { ... },
   "flights": [ ... ]
+}
+```
+
+For round-trip searches, the response contains:
+
+```json
+{
+  "search_criteria": { ... },
+  "metadata": { ... },
+  "round_trip_itineraries": [ ... ]
 }
 ```
 
@@ -64,6 +77,7 @@ Search for available flights across all configured providers.
 | `origin` | string | Origin airport code from request |
 | `destination` | string | Destination airport code from request |
 | `departure_date` | string | Departure date from request |
+| `return_date` | string | Return date from request (round-trip only) |
 | `passengers` | integer | Passenger count from request |
 | `cabin_class` | string | Cabin class from request |
 
@@ -71,14 +85,14 @@ Search for available flights across all configured providers.
 
 | Field | Type | Description |
 |---|---|---|
-| `total_results` | integer | Number of flights returned (after dedup + filters) |
+| `total_results` | integer | Number of flights returned (after dedup + filters) or itineraries (round-trip) |
 | `providers_queried` | integer | Total number of configured providers |
 | `providers_succeeded` | integer | Number of providers that returned data |
 | `providers_failed` | integer | Number of providers that failed or timed out |
 | `search_time_ms` | integer | Total end-to-end search time in milliseconds |
 | `cache_hit` | boolean | `true` if at least one provider result was served from cache |
 
-### `flights[]`
+### `flights[]` (One-Way Search)
 
 Each element in the `flights` array:
 
@@ -110,13 +124,27 @@ Each element in the `flights` array:
 | `baggage.carry_on` | string | Carry-on baggage allowance |
 | `baggage.checked` | string | Checked baggage allowance |
 
+### `round_trip_itineraries[]` (Round-Trip Search)
+
+Each element in the `round_trip_itineraries` array represents a complete round-trip combination:
+
+| Field | Type | Description |
+|---|---|---|
+| `outbound_flight` | object | Outbound flight details (see `flights[]` structure above) |
+| `return_flight` | object | Return flight details (see `flights[]` structure above) |
+| `total_price.amount` | integer | Sum of outbound and return flight prices |
+| `total_price.currency` | string | Currency code (e.g. `"IDR"`) |
+| `total_price.formatted` | string | Human-readable total price (e.g. `"IDR 1500000"`) |
+| `total_duration_minutes` | integer | Sum of both flight durations plus layover time |
+| `layover_minutes` | integer | Layover duration between return flight departure and outbound arrival |
+
 ---
 
 ## Error Responses
 
 | HTTP Status | Cause |
 |---|---|
-| `400 Bad Request` | Invalid JSON body or unparseable `departure_date` |
+| `400 Bad Request` | Invalid JSON body or unparseable `departure_date` or `return_date` |
 | `500 Internal Server Error` | All providers failed and usecase returned an error |
 
 ### Error Body
@@ -140,6 +168,13 @@ Codeshare flights are deduplicated using a key of `origin_airport + destination_
 ### Caching
 Results per `(provider, origin, destination, date, passengers)` tuple are cached in-memory for **5 minutes**. Cached results bypass the provider HTTP call entirely. `metadata.cache_hit = true` when at least one provider was served from cache.
 
+### Round-Trip Combination
+For round-trip searches, outbound and return flights are combined with the following rules:
+- Minimum layover: 90 minutes (1.5 hours)
+- Maximum layover: 24 hours
+- Total price: Sum of outbound and return flight prices
+- Results are ranked by lowest total price by default
+
 ### Timezone Handling
 All internal comparisons (filters, sort) use **UTC**. Departure/arrival timestamps in the response are returned in the provider's **original timezone** (via RFC3339 `datetime`) alongside a UTC Unix `timestamp`. This means a `06:00 WIB` departure displays as `2025-12-15T06:00:00+07:00`.
 
@@ -148,9 +183,11 @@ When `sort_by=best_value`, each flight receives a score `= (normalised_price × 
 
 ---
 
-## Example
+## Examples
 
-### Request
+### One-Way Search
+
+#### Request
 
 ```bash
 curl -s -X POST http://localhost:8080/flights/search \
@@ -167,7 +204,7 @@ curl -s -X POST http://localhost:8080/flights/search \
   }'
 ```
 
-### Response (truncated)
+#### Response (truncated)
 
 ```json
 {
@@ -212,6 +249,106 @@ curl -s -X POST http://localhost:8080/flights/search \
       "aircraft": null,
       "amenities": [],
       "baggage": { "carry_on": "", "checked": "" }
+    }
+  ]
+}
+```
+
+### Round-Trip Search
+
+#### Request
+
+```bash
+curl -s -X POST http://localhost:8080/flights/search \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "origin": "CGK",
+    "destination": "DPS",
+    "departure_date": "2025-12-15",
+    "return_date": "2025-12-22",
+    "passengers": 1,
+    "sort_by": "price",
+    "sort_order": "asc"
+  }'
+```
+
+#### Response (truncated)
+
+```json
+{
+  "search_criteria": {
+    "origin": "CGK",
+    "destination": "DPS",
+    "departure_date": "2025-12-15",
+    "return_date": "2025-12-22",
+    "passengers": 1,
+    "cabin_class": ""
+  },
+  "metadata": {
+    "total_results": 12,
+    "providers_queried": 4,
+    "providers_succeeded": 4,
+    "providers_failed": 0,
+    "search_time_ms": 425,
+    "cache_hit": false
+  },
+  "round_trip_itineraries": [
+    {
+      "outbound_flight": {
+        "id": "GA401_Garuda",
+        "provider": "Garuda",
+        "airline": { "name": "Garuda Indonesia", "code": "GA" },
+        "flight_number": "GA401",
+        "departure": {
+          "airport": "CGK",
+          "city": "Jakarta",
+          "datetime": "2025-12-15T06:00:00+07:00",
+          "timestamp": 1734224400
+        },
+        "arrival": {
+          "airport": "DPS",
+          "city": "Denpasar",
+          "datetime": "2025-12-15T09:00:00+08:00",
+          "timestamp": 1734227400
+        },
+        "duration": { "total_minutes": 120, "formatted": "2h" },
+        "stops": 0,
+        "price": { "amount": 750000, "currency": "IDR", "formatted": "IDR 750000" },
+        "available_seats": 50,
+        "cabin_class": "economy",
+        "aircraft": "B737",
+        "amenities": ["meals", "wifi"],
+        "baggage": { "carry_on": "7kg", "checked": "20kg" }
+      },
+      "return_flight": {
+        "id": "GA402_Garuda",
+        "provider": "Garuda",
+        "airline": { "name": "Garuda Indonesia", "code": "GA" },
+        "flight_number": "GA402",
+        "departure": {
+          "airport": "DPS",
+          "city": "Denpasar",
+          "datetime": "2025-12-22T14:00:00+08:00",
+          "timestamp": 1735030800
+        },
+        "arrival": {
+          "airport": "CGK",
+          "city": "Jakarta",
+          "datetime": "2025-12-22T17:00:00+07:00",
+          "timestamp": 1735035600
+        },
+        "duration": { "total_minutes": 120, "formatted": "2h" },
+        "stops": 0,
+        "price": { "amount": 750000, "currency": "IDR", "formatted": "IDR 750000" },
+        "available_seats": 50,
+        "cabin_class": "economy",
+        "aircraft": "B737",
+        "amenities": ["meals", "wifi"],
+        "baggage": { "carry_on": "7kg", "checked": "20kg" }
+      },
+      "total_price": { "amount": 1500000, "currency": "IDR", "formatted": "IDR 1500000" },
+      "total_duration_minutes": 1686,
+      "layover_minutes": 1446
     }
   ]
 }

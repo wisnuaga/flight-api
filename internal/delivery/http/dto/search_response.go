@@ -6,12 +6,28 @@ type SearchResponse struct {
 	Flights        []Flight       `json:"flights"`
 }
 
+// RoundTripResponse represents a round-trip search response
+type RoundTripResponse struct {
+	SearchCriteria SearchCriteria       `json:"search_criteria"`
+	Metadata       Metadata             `json:"metadata"`
+	Itineraries    []RoundTripItinerary `json:"round_trip_itineraries"`
+}
+
+// RoundTripItinerary represents a single round-trip option (outbound + return)
+type RoundTripItinerary struct {
+	OutboundFlight Flight   `json:"outbound_flight"`
+	ReturnFlight   Flight   `json:"return_flight"`
+	TotalPrice     Price    `json:"total_price"`
+	TotalDuration  Duration `json:"total_duration"`
+}
+
 type SearchCriteria struct {
-	Origin        string `json:"origin"`
-	Destination   string `json:"destination"`
-	DepartureDate string `json:"departure_date"`
-	Passengers    int    `json:"passengers"`
-	CabinClass    string `json:"cabin_class"`
+	Origin        string  `json:"origin"`
+	Destination   string  `json:"destination"`
+	DepartureDate string  `json:"departure_date"`
+	ReturnDate    *string `json:"return_date,omitempty"`
+	Passengers    int     `json:"passengers"`
+	CabinClass    string  `json:"cabin_class"`
 }
 
 type Metadata struct {

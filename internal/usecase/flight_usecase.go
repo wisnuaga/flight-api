@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/wisnuaga/flight-api/internal/command"
 	"github.com/wisnuaga/flight-api/internal/domain/entity"
 	"github.com/wisnuaga/flight-api/internal/port"
 )
@@ -19,10 +20,11 @@ type searchResult struct {
 }
 
 type FlightUsecaseImpl struct {
-	providers []port.FlightProvider
-	cache     port.Cache[[]*entity.Flight]
-	filterCmd port.FlightFilterCommand
-	sortCmd   port.FlightSortCommand
+	providers     []port.FlightProvider
+	cache         port.Cache[[]*entity.Flight]
+	filterCmd     port.FlightFilterCommand
+	sortCmd       port.FlightSortCommand
+	rtCombinerCmd port.RoundTripCombinerCommand
 }
 
 func NewFlightUsecase(
@@ -32,10 +34,11 @@ func NewFlightUsecase(
 	sortCmd port.FlightSortCommand,
 ) *FlightUsecaseImpl {
 	return &FlightUsecaseImpl{
-		providers: providers,
-		cache:     c,
-		filterCmd: filterCmd,
-		sortCmd:   sortCmd,
+		providers:     providers,
+		cache:         c,
+		filterCmd:     filterCmd,
+		sortCmd:       sortCmd,
+		rtCombinerCmd: command.NewRoundTripCombiner(),
 	}
 }
 
@@ -53,6 +56,12 @@ func GenerateFlightSearchKey(provider string, req *entity.SearchRequest) string 
 func (u *FlightUsecaseImpl) Search(ctx context.Context, req *entity.SearchRequest) (*entity.SearchResult, error) {
 	start := time.Now()
 
+	// Check if this is a round-trip search
+	if req.ReturnDate != nil {
+		return u.searchRoundTrip(ctx, req, start)
+	}
+
+	// One-way search
 	ctx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
 	defer cancel()
 
@@ -192,4 +201,80 @@ func (u *FlightUsecaseImpl) retryProviderSearch(ctx context.Context, p port.Flig
 	)
 
 	return nil, err
+}
+
+// searchRoundTrip performs a round-trip flight search using ReturnDate from the request
+func (u *FlightUsecaseImpl) searchRoundTrip(ctx context.Context, req *entity.SearchRequest, start time.Time) (*entity.SearchResult, error) {
+	if req.ReturnDate == nil {
+		return nil, fmt.Errorf("return_date is required for round-trip search")
+	}
+
+	// Search outbound flights (origin to destination, departure date)
+	outboundReq := &entity.SearchRequest{
+		Origin:        req.Origin,
+		Destination:   req.Destination,
+		DepartureDate: req.DepartureDate,
+		Passengers:    req.Passengers,
+		Filter:        req.Filter,
+		Sort:          req.Sort,
+	}
+
+	outboundResult, err := u.Search(ctx, outboundReq)
+	if err != nil {
+		return nil, fmt.Errorf("outbound search failed: %w", err)
+	}
+
+	if len(outboundResult.Flights) == 0 {
+		return nil, fmt.Errorf("no outbound flights found")
+	}
+
+	// Search return flights (swapped origin/destination, return date)
+	returnReq := &entity.SearchRequest{
+		Origin:        req.Destination,
+		Destination:   req.Origin,
+		DepartureDate: *req.ReturnDate,
+		Passengers:    req.Passengers,
+		Filter:        req.Filter,
+		Sort:          req.Sort,
+	}
+
+	returnResult, err := u.Search(ctx, returnReq)
+	if err != nil {
+		return nil, fmt.Errorf("return search failed: %w", err)
+	}
+
+	if len(returnResult.Flights) == 0 {
+		return nil, fmt.Errorf("no return flights found")
+	}
+
+	// Combine flights into round-trip itineraries
+	itineraries := u.rtCombinerCmd.Combine(outboundResult.Flights, returnResult.Flights)
+
+	if len(itineraries) == 0 {
+		return nil, fmt.Errorf("no valid round-trip combinations found (layover constraints)")
+	}
+
+	traceID, _ := ctx.Value("trace_id").(string)
+	slog.Info("round-trip search completed",
+		slog.String("trace_id", traceID),
+		slog.String("origin", req.Origin),
+		slog.String("destination", req.Destination),
+		slog.Int("itineraries", len(itineraries)),
+		slog.Int64("duration_ms", time.Since(start).Milliseconds()),
+	)
+
+	// Convert round-trip itineraries back to SearchResult
+	// This maintains the consistent interface while allowing the handler to check for round-trip results
+	return &entity.SearchResult{
+		Flights:              nil, // Not used for round-trip results
+		RoundTripItineraries: itineraries,
+		Meta: &entity.SearchMeta{
+			TotalFlights: len(itineraries),
+			Providers:    len(u.providers),
+			SuccessCount: outboundResult.Meta.SuccessCount,
+			FailedCount:  outboundResult.Meta.FailedCount,
+			SearchTimeMs: int(time.Since(start).Milliseconds()),
+			CacheHit:     outboundResult.Meta.CacheHit || returnResult.Meta.CacheHit,
+		},
+	}, nil
 }
