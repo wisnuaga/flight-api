@@ -38,6 +38,7 @@ func (h *FlightHandler) Search(c *gin.Context) {
 		return
 	}
 
+	// Search flights
 	result, err := h.Usecases.FlightUsecase.Search(c, &domainReq)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
