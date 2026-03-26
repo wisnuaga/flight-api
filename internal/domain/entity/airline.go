@@ -29,13 +29,13 @@ func (a AirlineName) IsValid() bool {
 // Returns the matched AirlineName or empty string if not found.
 func AirlineNameFromString(s string) AirlineName {
 	switch s {
-	case "Garuda Indonesia", "Garuda", "GA":
+	case "Garuda Indonesia", "Garuda":
 		return AirlineGaruda
-	case "Lion Air", "LionAir", "JT":
+	case "Lion Air", "LionAir":
 		return AirlineLionAir
-	case "AirAsia", "QZ":
+	case "AirAsia":
 		return AirlineAirAsia
-	case "Batik Air", "BatikAir", "ID":
+	case "Batik Air", "BatikAir":
 		return AirlineBatikAir
 	default:
 		return ""

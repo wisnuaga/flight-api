@@ -35,7 +35,7 @@ func TestFlightHandler_Search(t *testing.T) {
 			Flights: []*entity.Flight{
 				{
 					ID:           "F1",
-					Provider:     "Garuda",
+					Airline:      "Garuda",
 					FlightNumber: "GA123",
 					Origin:       entity.Location{Airport: "CGK", Time: time.Now().UTC(), Timezone: time.UTC},
 					Destination:  entity.Location{Airport: "DPS", Time: time.Now().Add(2 * time.Hour).UTC(), Timezone: time.UTC},

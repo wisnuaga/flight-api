@@ -34,8 +34,8 @@ func (c *flightSortCommandImpl) Execute(flights []*entity.Flight, sortParam enti
 	if field == entity.SortByBestValue && len(flights) > 0 {
 		minPrice = flights[0].Price
 		maxPrice = flights[0].Price
-		minDuration = int64(flights[0].Duration)
-		maxDuration = int64(flights[0].Duration)
+		minDuration = int64(flights[0].TotalTripDuration())
+		maxDuration = int64(flights[0].TotalTripDuration())
 
 		for _, f := range flights {
 			if f.Price.LessThan(minPrice) {
@@ -44,7 +44,7 @@ func (c *flightSortCommandImpl) Execute(flights []*entity.Flight, sortParam enti
 			if f.Price.GreaterThan(maxPrice) {
 				maxPrice = f.Price
 			}
-			fDur := int64(f.Duration)
+			fDur := int64(f.TotalTripDuration())
 			if fDur < minDuration {
 				minDuration = fDur
 			}
@@ -72,7 +72,7 @@ func (c *flightSortCommandImpl) Execute(flights []*entity.Flight, sortParam enti
 		case entity.SortByPrice:
 			isLess = f1.Price.LessThan(f2.Price)
 		case entity.SortByDuration:
-			isLess = f1.Duration < f2.Duration
+			isLess = f1.TotalTripDuration() < f2.TotalTripDuration()
 		case entity.SortByDeparture:
 			// Push zero-time flights to the end; use UTC for timezone-safe comparison
 			if f1.Origin.Time.IsZero() {
@@ -118,7 +118,7 @@ func (c *flightSortCommandImpl) calculateBestValueScore(f *entity.Flight, minPri
 
 	var normDur float64
 	if durRange > 0 {
-		normDur = float64(int64(f.Duration)-minDur) / durRange
+		normDur = float64(int64(f.TotalTripDuration())-minDur) / durRange
 	}
 
 	return (normPrice * weightPrice) + (normDur * weightDur)

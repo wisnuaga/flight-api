@@ -19,8 +19,8 @@ import (
 // directory the test runner may choose (e.g. the package dir or the repo root).
 func testDataDir() string {
 	_, file, _, _ := runtime.Caller(0)
-	// this file lives at internal/delivery/http/router; walk up 5 levels to repo root
-	root := filepath.Join(filepath.Dir(file), "../../../../..")
+	// this file lives at internal/delivery/http/router; walk up 4 levels to repo root
+	root := filepath.Join(filepath.Dir(file), "../../../../")
 	return filepath.Join(root, "tests/factory")
 }
 
@@ -168,7 +168,7 @@ func TestFlightSearch_Integration_FilterByPrice(t *testing.T) {
 
 func TestFlightSearch_Integration_FilterByAirlineIATA(t *testing.T) {
 	body := baseSearchBody()
-	body["airline_codes"] = []string{"GA"} // Garuda IATA code
+	body["airlines"] = []string{"Garuda Indonesia"}
 
 	w := doSearch(t, body)
 	require.Equal(t, http.StatusOK, w.Code)

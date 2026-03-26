@@ -22,7 +22,7 @@ A robust, high-performance flight search aggregation backend built in Go that su
 - **Price Filtering**: Min/max price filters with decimal precision
 - **Time Filtering**: Departure/arrival time ranges (UTC-based for consistency)
 - **Stops Filtering**: Direct flights only or maximum stops allowed
-- **Airline Filtering**: Filter by IATA code or provider name
+- **Airline Filtering**: Filter by airline name with type-safe enum (Garuda Indonesia, Lion Air, AirAsia, Batik Air)
 - **Duration Filtering**: Maximum flight duration in minutes
 - **Multiple Sort Options**: Price, duration, departure time, arrival time, or best-value ranking
 - **Best-Value Ranking**: Normalized scoring combining price and duration
@@ -269,7 +269,7 @@ curl -X POST http://localhost:8080/flights/search \
     "passengers": 1,
     "min_price": 500000,
     "max_price": 1500000,
-    "airline_codes": ["GA", "JT"],
+    "airlines": ["Garuda Indonesia", "Lion Air"],
     "max_stops": 0,
     "sort_by": "best_value"
   }'
