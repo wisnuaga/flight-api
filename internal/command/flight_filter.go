@@ -95,7 +95,8 @@ func (c *flightFilterCommandImpl) buildPredicates(filter *entity.SearchFilter) [
 			airlineMap[code] = true
 		}
 		predicates = append(predicates, func(f *entity.Flight) bool {
-			return airlineMap[f.Provider]
+			// Match on IATA airline code (e.g. "GA") OR provider display name (e.g. "Garuda Indonesia")
+			return airlineMap[f.AirlineCode] || airlineMap[f.Provider]
 		})
 	}
 

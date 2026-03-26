@@ -36,7 +36,7 @@ func (c *Client) Search(ctx context.Context, req *entity.SearchRequest) ([]*enti
 		return nil, ctx.Err()
 	}
 
-	mockResp, err := util.LoadMock[AirAsiaResponse](c.mockPath)
+	mockResp, err := util.LoadMock[SearchResponse](c.mockPath)
 	if err != nil {
 		return nil, err
 	}

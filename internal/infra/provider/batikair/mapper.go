@@ -8,7 +8,7 @@ import (
 	"github.com/wisnuaga/flight-api/internal/util"
 )
 
-func mapToDomain(resp BatikResponse, req *entity.SearchRequest) []*entity.Flight {
+func mapToDomain(resp SearchResponse, req *entity.SearchRequest) []*entity.Flight {
 	var flights []*entity.Flight
 	for _, f := range resp.Results {
 		// Batik Air embeds the UTC offset in the time string (e.g. "2025-12-15T07:15:00+0700").
@@ -30,6 +30,19 @@ func mapToDomain(resp BatikResponse, req *entity.SearchRequest) []*entity.Flight
 			continue
 		}
 
+		layovers := []*entity.Layover{}
+		for _, conn := range f.Connections {
+			dur, err := util.ParseDuration(conn.StopDuration)
+			if err != nil {
+				continue // TODO: Discuss regarding product decision about skipping tradeoffs
+			}
+
+			layovers = append(layovers, &entity.Layover{
+				Airport:  conn.StopAirport,
+				Duration: dur,
+			})
+		}
+
 		flight := entity.Flight{
 			ID:           fmt.Sprintf("%s_%s", f.FlightNumber, util.NormalizeAirlineName(f.AirlineName)),
 			Provider:     f.AirlineName,
@@ -49,6 +62,8 @@ func mapToDomain(resp BatikResponse, req *entity.SearchRequest) []*entity.Flight
 			Currency:       f.Fare.CurrencyCode,
 			CabinClass:     f.Fare.Class,
 			AvailableSeats: f.SeatsAvailable,
+			Stops:          len(layovers),
+			Layovers:       layovers,
 		}
 
 		flight = entity.NormalizeFlight(flight)

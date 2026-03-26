@@ -2,6 +2,8 @@ package util
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -25,29 +27,6 @@ func ParseTime(value string) (time.Time, error) {
 		}
 	}
 	return time.Time{}, fmt.Errorf("unable to parse time value: %s", value)
-}
-
-// ParseTimeWithOptionalTZ parses timestamps and converts them to UTC.
-// Use when the provider supplies a separate IANA timezone name alongside a naive time string.
-func ParseTimeWithOptionalTZ(value string, tz string) (time.Time, error) {
-	if tz != "" {
-		loc, err := time.LoadLocation(tz)
-		if err != nil {
-			return ParseTime(value)
-		}
-		t, err := time.ParseInLocation("2006-01-02T15:04:05", value, loc)
-		if err != nil {
-			for _, format := range timeFormats {
-				t2, err2 := time.ParseInLocation(format, value, loc)
-				if err2 == nil {
-					return t2.UTC(), nil
-				}
-			}
-			return time.Time{}, err
-		}
-		return t.UTC(), nil
-	}
-	return ParseTime(value)
 }
 
 // ParseTimeWithTZInfo parses a time string and also returns the original timezone location.
@@ -99,4 +78,33 @@ func ParseTimeFromString(value string) (time.Time, *time.Location, error) {
 	// t.Location() holds the fixed-offset location parsed from the embedded offset.
 	// If the format had no offset (naive time), Location() returns time.UTC.
 	return t.UTC(), t.Location(), nil
+}
+
+func ParseDuration(s string) (time.Duration, error) {
+	var total time.Duration
+
+	s = strings.TrimSpace(s)
+	parts := strings.Fields(s) // split by space
+	for _, p := range parts {
+		if strings.HasSuffix(p, "h") {
+			h, err := strconv.Atoi(strings.TrimSuffix(p, "h"))
+			if err != nil {
+				return 0, err
+			}
+			total += time.Duration(h) * time.Hour
+		} else if strings.HasSuffix(p, "m") {
+			m, err := strconv.Atoi(strings.TrimSuffix(p, "m"))
+			if err != nil {
+				return 0, err
+			}
+			total += time.Duration(m) * time.Minute
+		} else if strings.HasSuffix(p, "s") {
+			s, err := strconv.Atoi(strings.TrimSuffix(p, "s"))
+			if err != nil {
+				return 0, err
+			}
+			total += time.Duration(s) * time.Second
+		}
+	}
+	return total, nil
 }

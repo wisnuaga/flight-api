@@ -2,6 +2,7 @@ package garuda
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/shopspring/decimal"
 
@@ -9,7 +10,7 @@ import (
 	"github.com/wisnuaga/flight-api/internal/util"
 )
 
-func mapToDomain(resp GarudaSearchResponse) []*entity.Flight {
+func mapToDomain(resp SearchResponse) []*entity.Flight {
 	var flights []*entity.Flight
 	for _, f := range resp.Flights {
 		// Guard against nil pointers from the provider
@@ -35,6 +36,18 @@ func mapToDomain(resp GarudaSearchResponse) []*entity.Flight {
 			currency = f.Price.Currency
 		}
 
+		layovers := []*entity.Layover{}
+		for _, seg := range f.Segments {
+			if seg.LayoverMinutes == nil {
+				continue // skip, because layover time will calculate on the next iteration
+			}
+
+			layovers = append(layovers, &entity.Layover{
+				Airport:  seg.Departure.Airport,
+				Duration: time.Duration(*seg.LayoverMinutes) * time.Minute,
+			})
+		}
+
 		flight := entity.Flight{
 			ID:           fmt.Sprintf("%s_%s", f.FlightID, util.NormalizeAirlineName(f.Airline)),
 			Provider:     f.Airline,
@@ -56,6 +69,8 @@ func mapToDomain(resp GarudaSearchResponse) []*entity.Flight {
 			Currency:       currency,
 			CabinClass:     f.FareClass,
 			AvailableSeats: f.AvailableSeats,
+			Stops:          len(layovers),
+			Layovers:       layovers,
 		}
 
 		flight = entity.NormalizeFlight(flight)

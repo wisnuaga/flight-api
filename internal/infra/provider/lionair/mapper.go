@@ -2,6 +2,7 @@ package lionair
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/shopspring/decimal"
 
@@ -9,7 +10,7 @@ import (
 	"github.com/wisnuaga/flight-api/internal/util"
 )
 
-func mapToDomain(resp LionResponse, req *entity.SearchRequest) []*entity.Flight {
+func mapToDomain(resp SearchResponse, req *entity.SearchRequest) []*entity.Flight {
 	var flights []*entity.Flight
 	for _, f := range resp.Data.AvailableFlights {
 		// Lion Air is the only provider that supplies separate IANA timezone names
@@ -32,6 +33,14 @@ func mapToDomain(resp LionResponse, req *entity.SearchRequest) []*entity.Flight 
 			continue
 		}
 
+		layovers := []*entity.Layover{}
+		for _, lo := range f.Layovers {
+			layovers = append(layovers, &entity.Layover{
+				Airport:  lo.Airport,
+				Duration: time.Duration(lo.DurationMinutes) * time.Minute,
+			})
+		}
+
 		flight := entity.Flight{
 			ID:           fmt.Sprintf("%s_%s", f.ID, util.NormalizeAirlineName(f.Carrier.Name)),
 			Provider:     f.Carrier.Name,
@@ -51,6 +60,8 @@ func mapToDomain(resp LionResponse, req *entity.SearchRequest) []*entity.Flight 
 			Currency:       f.Pricing.Currency,
 			CabinClass:     f.Pricing.FareType,
 			AvailableSeats: f.SeatsLeft,
+			Stops:          len(layovers),
+			Layovers:       layovers,
 		}
 
 		flight = entity.NormalizeFlight(flight)

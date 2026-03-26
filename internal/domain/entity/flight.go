@@ -25,7 +25,8 @@ type Flight struct {
 	AvailableSeats int
 
 	// Routing info
-	Stops int
+	Stops    int
+	Layovers []*Layover
 }
 
 // Normalize applies basic field normalisations on the Flight value.
@@ -70,7 +71,7 @@ func NormalizeFlight(f Flight) Flight {
 		f.Duration = f.Destination.Time.Sub(f.Origin.Time)
 	}
 
-	// Apply entity-level normalisation (uppercase codes, default currency)
+	// Apply entity-level normalization (uppercase codes, default currency)
 	f.Normalize()
 
 	return f
@@ -102,4 +103,13 @@ func IsValidFlight(f Flight) bool {
 	}
 
 	return true
+}
+
+// TotalTripDuration returns sum of all in-air duration + layovers
+func (f *Flight) TotalTripDuration() time.Duration {
+	total := f.Duration
+	for _, l := range f.Layovers {
+		total += l.Duration
+	}
+	return total
 }

@@ -56,6 +56,10 @@ func (r *SearchRequest) ToDomain() (entity.SearchRequest, error) {
 			AirlineCodes:   r.AirlineCodes,
 			CabinClass:     cabinClass,
 		},
+		Sort: entity.SearchSort{
+			Field: entity.SortField(r.SortBy),
+			Order: entity.SortOrder(r.SortOrder),
+		},
 	}, nil
 }
 
@@ -63,7 +67,7 @@ func ToSearchResponse(req *SearchRequest, result *entity.SearchResult) SearchRes
 	var flights []Flight
 	if result.Flights != nil {
 		for _, f := range result.Flights {
-			durationMins := int(f.Duration.Minutes())
+			durationMins := int(f.TotalTripDuration().Minutes())
 			hours := durationMins / 60
 			mins := durationMins % 60
 
